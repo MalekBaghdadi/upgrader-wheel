@@ -1,6 +1,9 @@
-# Upgrader Wheel - pack value list (RLCraft Dregora)
+# Upgrader Wheel - built-in pack value list (RLCraft Dregora)
 #
-# Values for things recipes cannot price: boss and mob drops, loot, dragon parts.
+# This list ships inside the mod and is updated with it. To change a value, add a line to
+# config/upgraderwheel-pack.txt instead: your lines win over these.
+#
+# Values for things recipes cannot price: boss and mob drops, loot, dragon parts, special potions.
 # Everything crafted from these is priced from them automatically (a dragon bone sword is 2 dragon bones
 # and a witherbone), so fixing one raw material fixes everything made from it.
 #
@@ -8,12 +11,37 @@
 #           modid:item:meta = value     (one variant)
 #           modid:prefix_* = value      (* matches any text; *:*text* matches any mod)
 #           ore:oreDictName = value
+#           potion:modid:type = value   (a potion type, drinkable bottle; splash:, lingering:, arrow: for the others)
 #           modid:item = nowin          (can still be bet, but is never offered as a result)
 # Values:   a number, or 2d = 2 diamonds, 3i = 3 iron ingots, 1g = 1 gold ingot, 1e = 1 emerald
-# Values in config/upgraderwheel.cfg "overrides" win over this file.
-# After editing: /upgrader reload in game (or re-enter the world).
 #
-# Scale: iron ingot 256, gold ingot 2048, diamond 8192, emerald 16384, ender pearl 1024, nether star 139264.
+# Scale: iron ingot 1024, gold ingot 2048, diamond 8192, emerald 16384, ender pearl 1024, nether star 139264.
+
+# ---------------------------------------------------------------- Potions
+# Every brewed potion with an effect is worth at least potionValue (config, default 4 gold = 1 diamond).
+# Splash, lingering, long and strong versions are worked out from these through their brewing recipes
+# (each step is worth what goes in x 1.25), and potions brewed from costly ingredients (Diamond Skin from a
+# diamond block, Mending from a dragon heart) price themselves. Only the special ones are listed here.
+
+# Strong potions: 2 diamonds
+potion:minecraft:regeneration = 2d
+potion:minecraft:strength = 2d
+potion:minecraft:strong_healing = 2d           # Healing II
+potion:potioncore:resistance = 2d              # Fortitude (loot only)
+potion:potioncore:absorption = 2d              # loot only
+potion:potioncore:magic_shield = 2d            # loot only
+potion:potioncore:teleport_surface = 2d        # Escape: teleports you to the surface
+potion:potioncore:cure = 2d                    # Curing
+potion:rlmixins:curse_break = 2d               # Curse Break (Cleansing Talisman)
+potion:potioncore:revival = 3d                 # 1-Up: brings you back once (loot only)
+
+# Teleport home: 4 diamonds (the Wormhole Potion is brewed from the Recall Potion and comes out about 5)
+bountifulbaubles:potionrecall = 4d
+potion:potioncore:teleport_spawn = 4d          # Return (loot only)
+
+# Flight: 18 diamonds (splash and lingering come out higher through their brewing steps)
+potion:potioncore:flight = 18d
+potion:potioncore:long_flight = 22d            # loot only
 
 # ---------------------------------------------------------------- Ice and Fire: dragons
 iceandfire:dragonbone = 8192                 # 1 diamond. Bone gear is a bit better than diamond gear

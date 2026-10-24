@@ -199,16 +199,16 @@ public class GuiUpgrader extends GuiContainer {
     void onCatalogReady() {
         loading = false;
         if (selected != null) {
-            selected = findEntry(selected.itemId, selected.meta);
+            selected = findEntry(selected.itemId, selected.meta, selected.potion);
         }
         refilter();
         scrollToFirstUpgrade();
         updateButtons();
     }
 
-    private ClientCatalog.Entry findEntry(int itemId, int meta) {
+    private ClientCatalog.Entry findEntry(int itemId, int meta, String potion) {
         for (ClientCatalog.Entry entry : ClientCatalog.entries()) {
-            if (entry.itemId == itemId && entry.meta == meta) {
+            if (entry.sameAs(itemId, meta, potion)) {
                 return entry;
             }
         }
@@ -423,7 +423,7 @@ public class GuiUpgrader extends GuiContainer {
         phase = Phase.WAITING;
         phaseStartNanos = System.nanoTime();
         lastTick = (int) Math.floor(angle / 30.0);
-        Network.CHANNEL.sendToServer(new PacketRoll(container.windowId, spinTarget.itemId, spinTarget.meta, spinAmount));
+        Network.CHANNEL.sendToServer(new PacketRoll(container.windowId, spinTarget.itemId, spinTarget.meta, spinTarget.potion, spinAmount));
         updateButtons();
     }
 

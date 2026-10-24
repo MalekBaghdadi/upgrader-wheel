@@ -1,0 +1,20 @@
+# Upgrader Wheel - your pack values
+#
+# Your own values go here. They win over the built-in list that comes with the mod (RLCraft Dregora values,
+# harmless in other packs: lines for mods you don't have match nothing). Config overrides in upgraderwheel.cfg
+# win over both. The built-in list is updated with the mod, so don't copy it here; only add what you want different.
+# See the built-in list: https://github.com/MalekBaghdadi/upgrader-wheel/blob/main/src/main/resources/assets/upgraderwheel/pack/rlcraft_dregora.txt
+#
+# Format:   modid:item = value          (all variants)
+#           modid:item:meta = value     (one variant)
+#           modid:prefix_* = value      (* matches any text; *:*text* matches any mod)
+#           ore:oreDictName = value
+#           potion:potioncore:flight = 18d     (a potion type, drinkable; splash:, lingering:, arrow: for the others)
+#           modid:item = nowin          (can still be bet, but is never offered as a result)
+# Values:   a number, or 2d = 2 diamonds, 3i = 3 iron ingots, 1g = 1 gold ingot, 1e = 1 emerald
+# Scale:    iron ingot 1024, gold ingot 2048, diamond 8192, emerald 16384, nether star 139264
+# After editing: /upgrader reload in game (or re-enter the world).
+#
+# Examples (remove the # to use):
+# iceandfire:dragonbone = 1.5d
+# potion:minecraft:fire_resistance = 2d

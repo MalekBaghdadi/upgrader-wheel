@@ -4,6 +4,7 @@ import com.malek.upgraderwheel.UpgraderWheel;
 import com.malek.upgraderwheel.value.ValueRegistry;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.item.Item;
+import net.minecraftforge.fml.common.network.ByteBufUtils;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
 import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
@@ -11,7 +12,7 @@ import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
 import java.util.List;
 
 /**
- * Server to client: one chunk of the result list (item, value, max stack) plus the odds settings.
+ * Server to client: one chunk of the result list (item, potion type, value, max stack) plus the odds settings.
  */
 public class PacketCatalog implements IMessage {
 
@@ -25,6 +26,8 @@ public class PacketCatalog implements IMessage {
     public short[] metas = new short[0];
     public double[] values = new double[0];
     public byte[] maxStacks = new byte[0];
+    /** Potion type registry name per entry, "" for items that are not potions. */
+    public String[] potions = new String[0];
 
     public PacketCatalog() {
     }
@@ -42,12 +45,14 @@ public class PacketCatalog implements IMessage {
         this.metas = new short[n];
         this.values = new double[n];
         this.maxStacks = new byte[n];
+        this.potions = new String[n];
         for (int i = 0; i < n; i++) {
             ValueRegistry.CatalogEntry entry = entries.get(i);
             itemIds[i] = Item.getIdFromItem(entry.item);
             metas[i] = (short) entry.meta;
             values[i] = entry.value;
             maxStacks[i] = (byte) entry.maxStack;
+            potions[i] = entry.potionId();
         }
     }
 
@@ -65,6 +70,7 @@ public class PacketCatalog implements IMessage {
             buf.writeShort(metas[i]);
             buf.writeDouble(values[i]);
             buf.writeByte(maxStacks[i]);
+            ByteBufUtils.writeUTF8String(buf, potions[i] == null ? "" : potions[i]);
         }
     }
 
@@ -81,11 +87,13 @@ public class PacketCatalog implements IMessage {
         metas = new short[n];
         values = new double[n];
         maxStacks = new byte[n];
+        potions = new String[n];
         for (int i = 0; i < n; i++) {
             itemIds[i] = buf.readInt();
             metas[i] = buf.readShort();
             values[i] = buf.readDouble();
             maxStacks[i] = buf.readByte();
+            potions[i] = ByteBufUtils.readUTF8String(buf);
         }
     }
 

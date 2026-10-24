@@ -46,6 +46,10 @@ public final class ModConfig {
     public static double fallbackEpic = 32768;
     public static double fallbackUnstackableMultiplier = 4;
     public static double fallbackPerDurabilityPoint = 2;
+    public static double potionValue = 8192;
+    public static double brewingStepMultiplier = 1.25;
+    public static boolean potionResults = true;
+    public static boolean builtInPackList = true;
 
     // Rules
     public static String[] blacklist = new String[0];
@@ -113,6 +117,17 @@ public final class ModConfig {
                 "The rarity guess is multiplied by this for items that do not stack (gear, trinkets).", 0.0001, 1.0E6).getDouble(), 4);
         fallbackPerDurabilityPoint = Math.max(0, c.get(CAT_VALUES, "fallbackPerDurabilityPoint", 2.0,
                 "Gear with durability is guessed at least this much per durability point.", 0.0, 1.0E6).getDouble());
+        potionValue = Math.max(0, c.get(CAT_VALUES, "potionValue", 8192.0,
+                "The least a brewed potion with an effect is worth (8192 = 4 gold ingots = 1 diamond). Potions made from\n"
+                        + "costly ingredients are worth more, and the pack list prices special ones (potion:potioncore:flight = 18d).", 0.0, 1.0E12).getDouble());
+        brewingStepMultiplier = clamp(c.get(CAT_VALUES, "brewingStepMultiplier", 1.25,
+                "Each brewing step (awkward to a potion, a potion to its long, strong, splash or lingering version) is worth\n"
+                        + "what goes in times this. One ingredient brews three bottles.", 1.0, 10.0).getDouble(), 1.0, 10.0);
+        potionResults = c.getBoolean("potionResults", CAT_VALUES, true,
+                "Offer brewed potions (drinkable, splash and lingering) as results.");
+        builtInPackList = c.getBoolean("builtInPackList", CAT_VALUES, true,
+                "Use the pack value list that comes with the mod (made for RLCraft Dregora; lines for mods you don't have do nothing).\n"
+                        + "Your own lines go in config/upgraderwheel-pack.txt and win over it.");
 
         c.setCategoryComment(CAT_RULES, "What can be bet or won, and limits. Ids use the same format as overrides (modid:item, modid:item:meta, modid:*, ore:name).");
         blacklist = c.get(CAT_RULES, "blacklist", new String[0], "Items that can neither be bet nor won.").getStringList();
@@ -197,7 +212,7 @@ public final class ModConfig {
         double unit = 1;
         char last = t.charAt(t.length() - 1);
         if (last == 'd' || last == 'i' || last == 'g' || last == 'e') {
-            unit = last == 'd' ? 8192 : last == 'i' ? 256 : last == 'g' ? 2048 : 16384;
+            unit = last == 'd' ? 8192 : last == 'i' ? 1024 : last == 'g' ? 2048 : 16384;
             t = t.substring(0, t.length() - 1).trim();
         }
         try {

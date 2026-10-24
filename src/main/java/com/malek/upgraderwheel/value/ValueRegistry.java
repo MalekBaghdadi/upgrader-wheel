@@ -5,6 +5,7 @@ import com.malek.upgraderwheel.UpgraderWheel;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
+import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2DoubleMap;
 import it.unimi.dsi.fastutil.longs.Long2DoubleOpenHashMap;
@@ -28,9 +29,14 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.FurnaceRecipes;
 import net.minecraft.item.crafting.IRecipe;
 import net.minecraft.item.crafting.Ingredient;
+import net.minecraft.init.PotionTypes;
+import net.minecraft.potion.PotionType;
+import net.minecraft.potion.PotionUtils;
 import net.minecraft.util.NonNullList;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.common.IRarity;
+import net.minecraftforge.common.brewing.BrewingRecipeRegistry;
+import net.minecraftforge.common.brewing.IBrewingRecipe;
 import net.minecraftforge.fml.common.registry.ForgeRegistries;
 import net.minecraftforge.oredict.OreDictionary;
 
@@ -65,6 +71,7 @@ public final class ValueRegistry {
         ORE_DICT("ore dictionary base value"),
         RECIPE("crafting recipe"),
         SMELTING("smelting recipe"),
+        BREWING("brewing recipe"),
         GEAR("estimate from the gear it makes or its own stats"),
         SMELTS_INTO("worth what it smelts into"),
         FALLBACK("rarity guess (no recipe)");
@@ -79,20 +86,31 @@ public final class ValueRegistry {
     public static final class CatalogEntry {
         public final Item item;
         public final int meta;
+        /** The potion type for potions, splash and lingering potions; null for everything else. */
+        @Nullable
+        public final PotionType potion;
         public final double value;
         public final int maxStack;
         public final Source source;
 
-        CatalogEntry(Item item, int meta, double value, int maxStack, Source source) {
+        CatalogEntry(Item item, int meta, @Nullable PotionType potion, double value, int maxStack, Source source) {
             this.item = item;
             this.meta = meta;
+            this.potion = potion;
             this.value = value;
             this.maxStack = maxStack;
             this.source = source;
         }
 
+        /** Registry name of the potion type, or "" when this is not a potion. */
+        public String potionId() {
+            ResourceLocation id = potion == null ? null : potion.getRegistryName();
+            return id == null ? "" : id.toString();
+        }
+
         public ItemStack createStack(int amount) {
-            return new ItemStack(item, amount, meta);
+            ItemStack stack = new ItemStack(item, amount, meta);
+            return potion == null ? stack : PotionUtils.addPotionToItemStack(stack, potion);
         }
     }
 
@@ -118,15 +136,22 @@ public final class ValueRegistry {
         final long[][] alternatives;
         final long[][] containers;
         final boolean smelting;
+        /** A brewing stand step: three bottles and one ingredient make three bottles. */
+        final boolean brewing;
         /** The concrete ingredient keys that gave this recipe its value, when it is the one an item is priced by. */
         long[] chosen;
 
         Rec(long out, double outCount, long[][] alternatives, long[][] containers, boolean smelting) {
+            this(out, outCount, alternatives, containers, smelting, false);
+        }
+
+        Rec(long out, double outCount, long[][] alternatives, long[][] containers, boolean smelting, boolean brewing) {
             this.out = out;
             this.outCount = outCount;
             this.alternatives = alternatives;
             this.containers = containers;
             this.smelting = smelting;
+            this.brewing = brewing;
         }
     }
 
@@ -156,9 +181,17 @@ public final class ValueRegistry {
     private final List<ItemPattern> blacklist = new ArrayList<>();
     private final List<ItemPattern> targetBlacklist = new ArrayList<>();
     private final List<ItemPattern> betBlacklist = new ArrayList<>();
+    /** Every potion key seen (potion, splash, lingering, tipped arrow of one potion type). */
+    private final LongSet potionKeys = new LongOpenHashSet();
+    /** Potions some brewing recipe makes: these are offered as results. */
+    private final LongSet brewedKeys = new LongOpenHashSet();
+    /** For values worked out from what an item smelts into: that output, so loops back through it are refused. */
+    private final Long2LongOpenHashMap smeltTarget = new Long2LongOpenHashMap();
 
     private int skippedRecipes;
     private int smeltingRecipes;
+    private int brewingRecipes;
+    private long brewingMillis;
     private int creativeFailures;
     private int creativeItems;
     private long buildMillis;
@@ -168,6 +201,7 @@ public final class ValueRegistry {
         this.values.defaultReturnValue(-1);
         this.via.defaultReturnValue(-1);
         this.uses.defaultReturnValue(0);
+        this.smeltTarget.defaultReturnValue(-1);
     }
 
     // ------------------------------------------------------------------ access
@@ -209,6 +243,17 @@ public final class ValueRegistry {
         return catalogByKey.get(key(item, meta));
     }
 
+    /** The listed entry for an item, or for a potion when potionId names a potion type. */
+    @Nullable
+    public CatalogEntry catalogEntry(Item item, int meta, String potionId) {
+        if (potionId == null || potionId.isEmpty()) {
+            return catalogEntry(item, meta);
+        }
+        PotionType type = ForgeRegistries.POTION_TYPES.getValue(new ResourceLocation(potionId));
+        long key = type == null ? -1 : potionKey(potionForm(item), type);
+        return key < 0 ? null : catalogByKey.get(key);
+    }
+
     // ------------------------------------------------------------------ keys
 
     public static int normalizeMeta(Item item, int meta) {
@@ -229,15 +274,101 @@ public final class ValueRegistry {
     }
 
     public static long key(ItemStack stack) {
-        return key(stack.getItem(), stack.getMetadata());
+        long potion = potionKey(stack);
+        return potion >= 0 ? potion : key(stack.getItem(), stack.getMetadata());
+    }
+
+    // Potions keep their type in NBT, so each (form, potion type) gets a key of its own, far above item keys:
+    // bit 40 set, the form in bits 24-27, the potion type's numeric id below.
+    private static final long POTION_FLAG = 1L << 40;
+    private static final Item[] POTION_FORMS = {Items.POTIONITEM, Items.SPLASH_POTION, Items.LINGERING_POTION, Items.TIPPED_ARROW};
+    static final String[] POTION_FORM_NAMES = {"potion", "splash", "lingering", "arrow"};
+    static final int FORM_ARROW = 3;
+
+    /** 0 potion, 1 splash, 2 lingering, 3 tipped arrow; -1 for anything else. */
+    public static int potionForm(Item item) {
+        for (int i = 0; i < POTION_FORMS.length; i++) {
+            if (POTION_FORMS[i] == item) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /** The potion key of a potion stack with a real potion type, or -1. */
+    public static long potionKey(ItemStack stack) {
+        int form = potionForm(stack.getItem());
+        if (form < 0 || !stack.hasTagCompound()) {
+            return -1;
+        }
+        return potionKey(form, PotionUtils.getPotionFromItem(stack));
+    }
+
+    static long potionKey(int form, @Nullable PotionType type) {
+        if (form < 0 || type == null || type == PotionTypes.EMPTY) {
+            return -1;
+        }
+        int id = PotionType.REGISTRY.getIDForObject(type);
+        return id < 0 ? -1 : POTION_FLAG | ((long) form << 24) | (id & 0xFFFFFFL);
+    }
+
+    public static boolean isPotionKey(long key) {
+        return (key & POTION_FLAG) != 0;
+    }
+
+    private static int formOf(long key) {
+        return (int) ((key >>> 24) & 0xF);
+    }
+
+    @Nullable
+    private static PotionType potionTypeOf(long key) {
+        return isPotionKey(key) ? PotionType.REGISTRY.getObjectById((int) (key & 0xFFFFFFL)) : null;
     }
 
     private static Item itemOf(long key) {
+        if (isPotionKey(key)) {
+            int form = formOf(key);
+            return form < POTION_FORMS.length ? POTION_FORMS[form] : null;
+        }
         return Item.getItemById((int) (key >>> 16));
     }
 
     private static int metaOf(long key) {
-        return (int) (key & 0xFFFF);
+        return isPotionKey(key) ? 0 : (int) (key & 0xFFFF);
+    }
+
+    /** A one-item stack for a key (with the potion type for potion keys), or EMPTY. */
+    private static ItemStack stackOf(long key) {
+        Item item = itemOf(key);
+        if (item == null || item == Items.AIR) {
+            return ItemStack.EMPTY;
+        }
+        int meta = metaOf(key);
+        ItemStack stack = new ItemStack(item, 1, meta == WILDCARD ? 0 : meta);
+        PotionType type = potionTypeOf(key);
+        return type == null ? stack : PotionUtils.addPotionToItemStack(stack, type);
+    }
+
+    /** The id used in the CSV and in the config for a key: modid:item, or potion:/splash:/lingering:/arrow: + potion type. */
+    public static String idOf(long key) {
+        if (isPotionKey(key)) {
+            PotionType type = potionTypeOf(key);
+            int form = formOf(key);
+            return (form < POTION_FORM_NAMES.length ? POTION_FORM_NAMES[form] : "potion") + ":"
+                    + (type == null ? "?" : String.valueOf(type.getRegistryName()));
+        }
+        Item item = itemOf(key);
+        return item == null ? "?" : String.valueOf(item.getRegistryName());
+    }
+
+    /** The config id for a held stack: potion:type for potions, modid:item(:meta) otherwise. */
+    public static String configId(ItemStack stack) {
+        long potion = potionKey(stack);
+        if (potion >= 0) {
+            return idOf(potion);
+        }
+        String id = String.valueOf(stack.getItem().getRegistryName());
+        return stack.getHasSubtypes() ? id + ":" + stack.getMetadata() : id;
     }
 
     // ------------------------------------------------------------------ values for bets
@@ -294,6 +425,10 @@ public final class ValueRegistry {
 
     @Nullable
     private String describeRecipe(long key) {
+        long target = smeltTarget.get(key);
+        if (target >= 0 && sources.get(key) == Source.SMELTS_INTO) {
+            return "smelts into " + nameOf(target);
+        }
         int index = via.get(key);
         if (index < 0 || index >= recipes.size()) {
             return null;
@@ -313,7 +448,9 @@ public final class ValueRegistry {
             }
             text.append(e.getValue()).append(' ').append(nameOf(e.getKey()));
         }
-        if (rec.outCount != 1) {
+        if (rec.brewing) {
+            text.append(" (brewed, makes ").append(ModConfig.formatNumber(rec.outCount)).append(')');
+        } else if (rec.outCount != 1) {
             text.append(rec.smelting ? " (smelted, makes " : " (makes ").append(ModConfig.formatNumber(rec.outCount)).append(')');
         } else if (rec.smelting) {
             text.append(" (smelted)");
@@ -322,19 +459,19 @@ public final class ValueRegistry {
     }
 
     private static String nameOf(long key) {
-        Item item = itemOf(key);
-        if (item == null) {
+        ItemStack stack = stackOf(key);
+        if (stack.isEmpty()) {
             return "?";
         }
         try {
-            String name = new ItemStack(item, 1, metaOf(key)).getDisplayName();
+            String name = stack.getDisplayName();
             if (name != null && !name.isEmpty()) {
                 return name;
             }
         } catch (Throwable ignored) {
             // Fall back to the id
         }
-        return String.valueOf(item.getRegistryName());
+        return idOf(key);
     }
 
     public boolean isBlacklistedBet(ItemStack stack) {
@@ -347,10 +484,10 @@ public final class ValueRegistry {
         for (Long2DoubleMap.Entry e : values.long2DoubleEntrySet()) {
             long key = e.getLongKey();
             Item item = itemOf(key);
-            if (item == null || item.getRegistryName() == null) {
+            if (item == null || item.getRegistryName() == null || (isPotionKey(key) && potionTypeOf(key) == null)) {
                 continue;
             }
-            rows.add(new Object[]{item.getRegistryName().toString(), metaOf(key), e.getDoubleValue(), sources.get(key), catalogByKey.containsKey(key), nameOf(key), describeRecipe(key)});
+            rows.add(new Object[]{idOf(key), metaOf(key), e.getDoubleValue(), sources.get(key), catalogByKey.containsKey(key), nameOf(key), describeRecipe(key)});
         }
         rows.sort(Comparator.comparing((Object[] r) -> (String) r[0]).thenComparing(r -> (Integer) r[1]));
         return rows;
@@ -393,8 +530,8 @@ public final class ValueRegistry {
     }
 
     public String summary() {
-        return String.format("%d items valued, %d listed as results, %d recipes walked (%d smelting), %d skipped, %d ms",
-                values.size(), catalog.size(), recipes.size(), smeltingRecipes, skippedRecipes, buildMillis);
+        return String.format("%d items valued, %d listed as results, %d recipes walked (%d smelting, %d brewing in %d ms), %d skipped, %d ms",
+                values.size(), catalog.size(), recipes.size(), smeltingRecipes, brewingRecipes, brewingMillis, skippedRecipes, buildMillis);
     }
 
     // ------------------------------------------------------------------ build
@@ -406,11 +543,15 @@ public final class ValueRegistry {
         List<ItemStack> targetStacks = collectCreativeStacks();
         collectRecipes();
         collectSmelting();
+        collectBrewing(targetStacks);
+        addTippedArrowRecipes();
 
         seedOverrides();
         seedPackValues();
         seedBaseValues();
+        seedPotionBaseValues();
         seedOreDictionary();
+        raiseSeedsToSmeltYield();
         buildWildcardExpansion();
         countUses();
 
@@ -494,12 +635,16 @@ public final class ValueRegistry {
     private void note(ItemStack stack) {
         if (!stack.isEmpty()) {
             note(stack.getItem(), stack.getMetadata());
+            long potion = potionKey(stack);
+            if (potion >= 0) {
+                potionKeys.add(potion);
+            }
         }
     }
 
     /** Every concrete (non-wildcard) key seen anywhere. Items only ever seen as wildcards count as meta 0. */
     private long[] allKnownKeys() {
-        LongSet keys = new LongOpenHashSet();
+        LongSet keys = new LongOpenHashSet(potionKeys);
         for (Map.Entry<Item, IntSet> entry : metasSeen.entrySet()) {
             Item item = entry.getKey();
             if (entry.getValue().isEmpty()) {
@@ -635,9 +780,148 @@ public final class ValueRegistry {
         }
     }
 
+    /**
+     * Brewing stand recipes. Forge only exposes them as black boxes (isInput / isIngredient / getOutput), so every
+     * potion and creative-tab stack is offered to every recipe: vanilla mixes, mod potions and CraftTweaker brews all
+     * show up the same way. One ingredient brews three bottles, so a step costs a bottle plus a third of the ingredient.
+     */
+    private void collectBrewing(List<ItemStack> creativeStacks) {
+        long start = System.currentTimeMillis();
+        List<IBrewingRecipe> brewing;
+        try {
+            brewing = BrewingRecipeRegistry.getRecipes();
+        } catch (Throwable t) {
+            return;
+        }
+        // One stack per key: every potion type in every bottle form, then everything from the creative tabs
+        Long2ObjectOpenHashMap<ItemStack> unique = new Long2ObjectOpenHashMap<>();
+        for (PotionType type : ForgeRegistries.POTION_TYPES.getValuesCollection()) {
+            if (type == null || type == PotionTypes.EMPTY) {
+                continue;
+            }
+            for (int form = 0; form < FORM_ARROW; form++) {
+                ItemStack stack = PotionUtils.addPotionToItemStack(new ItemStack(POTION_FORMS[form]), type);
+                unique.putIfAbsent(key(stack), stack);
+            }
+        }
+        for (ItemStack stack : creativeStacks) {
+            if (!stack.isEmpty()) {
+                unique.putIfAbsent(key(stack), stack);
+            }
+        }
+        List<ItemStack> candidates = new ArrayList<>(unique.values());
+        for (IBrewingRecipe recipe : brewing) {
+            if (recipe == null) {
+                continue;
+            }
+            List<ItemStack> inputs = new ArrayList<>();
+            List<ItemStack> ingredients = new ArrayList<>();
+            for (ItemStack stack : candidates) {
+                try {
+                    if (recipe.isInput(stack)) {
+                        inputs.add(stack);
+                    }
+                } catch (Throwable ignored) {
+                    // A recipe that cannot look at this stack does not take it
+                }
+                try {
+                    if (recipe.isIngredient(stack)) {
+                        ingredients.add(stack);
+                    }
+                } catch (Throwable ignored) {
+                    // Same
+                }
+            }
+            if ((long) inputs.size() * ingredients.size() > 200000) {
+                UpgraderWheel.LOGGER.warn("Skipping brewing recipe {}: it accepts {} inputs and {} ingredients", recipe.getClass().getName(), inputs.size(), ingredients.size());
+                skippedRecipes++;
+                continue;
+            }
+            for (ItemStack input : inputs) {
+                long in = key(input);
+                for (ItemStack ingredient : ingredients) {
+                    ItemStack out;
+                    try {
+                        out = recipe.getOutput(input.copy(), ingredient.copy());
+                    } catch (Throwable t) {
+                        continue;
+                    }
+                    if (out == null || out.isEmpty()) {
+                        continue;
+                    }
+                    long outKey = key(out);
+                    if (outKey == in) {
+                        continue;
+                    }
+                    long ing = key(ingredient);
+                    long container = -1;
+                    try {
+                        if (ingredient.getItem().hasContainerItem(ingredient)) {
+                            ItemStack left = ingredient.getItem().getContainerItem(ingredient);
+                            if (left != null && !left.isEmpty()) {
+                                container = key(left);
+                            }
+                        }
+                    } catch (Throwable ignored) {
+                        // Treat the ingredient as fully used up
+                    }
+                    note(input);
+                    note(ingredient);
+                    note(out);
+                    // Three bottles and one ingredient make three bottles
+                    recipes.add(new Rec(outKey, 3.0 * out.getCount(),
+                            new long[][]{{in}, {in}, {in}, {ing}},
+                            new long[][]{{-1}, {-1}, {-1}, {container}}, false, true));
+                    if (isPotionKey(outKey)) {
+                        brewedKeys.add(outKey);
+                    }
+                    brewingRecipes++;
+                }
+            }
+        }
+        brewingMillis = System.currentTimeMillis() - start;
+    }
+
+    /** Tipped arrows are made by a dynamic recipe (8 arrows around a lingering potion), so add it for every potion type. */
+    private void addTippedArrowRecipes() {
+        long arrow = key(Items.ARROW, 0);
+        note(Items.ARROW, 0);
+        for (PotionType type : ForgeRegistries.POTION_TYPES.getValuesCollection()) {
+            long lingering = potionKey(2, type);
+            long tipped = potionKey(FORM_ARROW, type);
+            if (lingering < 0 || tipped < 0 || type.getEffects().isEmpty()) {
+                continue;
+            }
+            potionKeys.add(lingering);
+            potionKeys.add(tipped);
+            long[][] alternatives = new long[9][];
+            long[][] containers = new long[9][];
+            for (int i = 0; i < 8; i++) {
+                alternatives[i] = new long[]{arrow};
+                containers[i] = new long[]{-1};
+            }
+            alternatives[8] = new long[]{lingering};
+            containers[8] = new long[]{-1};
+            recipes.add(new Rec(tipped, 8, alternatives, containers, false));
+        }
+    }
+
     /** Keys a pattern applies to, from what has been seen plus the item it names directly. */
     private long[] keysFor(ItemPattern pattern) {
         LongSet keys = new LongOpenHashSet();
+        if (pattern.kind == ItemPattern.Kind.POTION) {
+            for (PotionType type : ForgeRegistries.POTION_TYPES.getValuesCollection()) {
+                ResourceLocation id = type == null ? null : type.getRegistryName();
+                if (id != null && pattern.matchesPotionName(id)) {
+                    long k = potionKey(pattern.potionForm, type);
+                    if (k >= 0) {
+                        keys.add(k);
+                        potionKeys.add(k);
+                    }
+                }
+            }
+            return keys.toLongArray();
+        }
         Item named = pattern.item();
         if (named != null) {
             if (pattern.kind == ItemPattern.Kind.ITEM_META) {
@@ -776,6 +1060,52 @@ public final class ValueRegistry {
         }
     }
 
+    /** Built-in potion values (by potion type, for the drinkable bottle). */
+    private void seedPotionBaseValues() {
+        for (Map.Entry<String, Double> entry : BaseValues.POTIONS.entrySet()) {
+            PotionType type = ForgeRegistries.POTION_TYPES.getValue(new ResourceLocation(entry.getKey()));
+            long key = potionKey(0, type);
+            if (key >= 0) {
+                potionKeys.add(key);
+                seed(key, entry.getValue(), Source.BASE);
+            }
+        }
+    }
+
+    /**
+     * Seeds have to agree with what they smelt into: horse armor that smelts into 7 diamonds is worth 7 diamonds.
+     * Otherwise the walk would read "7 diamonds for the price of 2" and lower diamonds, and everything after them.
+     */
+    private void raiseSeedsToSmeltYield() {
+        for (int round = 0; round < 4; round++) {
+            boolean changed = false;
+            for (Rec rec : recipes) {
+                if (!rec.smelting) {
+                    continue;
+                }
+                long in = rec.alternatives[0][0];
+                Source inSource = sources.get(in);
+                Source outSource = sources.get(rec.out);
+                if (metaOf(in) == WILDCARD || fixed.contains(in) || (inSource != Source.BASE && inSource != Source.ORE_DICT && inSource != Source.SMELTS_INTO)) {
+                    continue;
+                }
+                if (outSource != Source.BASE && outSource != Source.ORE_DICT && outSource != Source.PACK && outSource != Source.OVERRIDE) {
+                    continue;
+                }
+                double worth = values.get(rec.out) * rec.outCount;
+                if (worth > values.get(in) * (1 + 1.0E-9)) {
+                    values.put(in, worth);
+                    sources.put(in, Source.SMELTS_INTO);
+                    smeltTarget.put(in, rec.out);
+                    changed = true;
+                }
+            }
+            if (!changed) {
+                return;
+            }
+        }
+    }
+
     private void seedOreDictionary() {
         for (Map.Entry<String, Double> entry : BaseValues.ORES.entrySet()) {
             if (!OreDictionary.doesOreNameExist(entry.getKey())) {
@@ -896,6 +1226,7 @@ public final class ValueRegistry {
             if (worth > values.get(in)) {
                 values.put(in, worth);
                 sources.put(in, Source.SMELTS_INTO);
+                smeltTarget.put(in, rec.out);
                 changed = true;
             }
         }
@@ -974,13 +1305,34 @@ public final class ValueRegistry {
                 if (!known) {
                     continue;
                 }
-                double unit = Math.max(MIN_VALUE, total / rec.outCount);
+                double unit = total / rec.outCount;
+                if (rec.brewing) {
+                    // Brewing takes a stand, blaze powder and time; each step adds to what goes in
+                    unit *= ModConfig.brewingStepMultiplier;
+                }
+                unit = Math.max(MIN_VALUE, Math.max(unit, potionFloor(rec.out)));
                 double current = values.get(rec.out);
                 boolean update;
                 if (current < 0) {
                     update = true;
+                } else if (rec.smelting && isSeed(chosen[0]) && isSeed(rec.out) && unit < current) {
+                    // Smelting one fixed value into another never lowers it: seeds are raised to agree with what
+                    // they smelt into instead (raiseSeedsToSmeltYield), and ores priced from their output loop
+                    update = false;
                 } else {
                     boolean lower = unit < current - 1.0E-9 * Math.max(1, current);
+                    if (!lower && via.get(rec.out) == r && sources.get(rec.out) != Source.FALLBACK
+                            && unit > current + 1.0E-9 * Math.max(1, current)) {
+                        // The recipe this item is priced by went up (an ingredient was re-priced, or a potion floor
+                        // rose): follow it, unless that recipe loops back through this item (then it would never settle)
+                        if (dependsOn(chosen, rec.out)) {
+                            continue;
+                        }
+                        values.put(rec.out, unit);
+                        rec.chosen = chosen;
+                        changed = true;
+                        continue;
+                    }
                     boolean currentGuessed = isGuessed(rec.out, new Long2IntOpenHashMap(), 0);
                     if (!lower && !currentGuessed) {
                         continue;
@@ -1004,7 +1356,7 @@ public final class ValueRegistry {
                 }
                 if (update) {
                     values.put(rec.out, unit);
-                    sources.put(rec.out, rec.smelting ? Source.SMELTING : Source.RECIPE);
+                    sources.put(rec.out, rec.brewing ? Source.BREWING : rec.smelting ? Source.SMELTING : Source.RECIPE);
                     via.put(rec.out, r);
                     rec.chosen = chosen;
                     changed = true;
@@ -1015,6 +1367,38 @@ public final class ValueRegistry {
             }
         }
         UpgraderWheel.LOGGER.debug("Value walk stopped after {} passes", MAX_PASSES);
+    }
+
+    /** Values that are not worked out from recipes: built in, from the config or pack list, or estimates. */
+    private boolean isSeed(long key) {
+        Source source = sources.get(key);
+        return source == Source.BASE || source == Source.ORE_DICT || source == Source.PACK || source == Source.OVERRIDE
+                || source == Source.GEAR || source == Source.SMELTS_INTO;
+    }
+
+    /**
+     * The least a potion with an effect is worth: potionValue for the drinkable bottle, one brewing step more for a
+     * splash potion and two for a lingering one (some packs brew those straight from a cheap base); 0 for the rest.
+     */
+    private double potionFloor(long key) {
+        if (!isPotionKey(key) || formOf(key) == FORM_ARROW) {
+            return 0;
+        }
+        PotionType type = potionTypeOf(key);
+        if (type == null || type.getEffects().isEmpty()) {
+            return 0;
+        }
+        double floor = potionFallback(key);
+        int form = formOf(key);
+        if (form > 0) {
+            // A splash potion is never worth less than the drinkable one it is brewed from, a lingering one never
+            // less than the splash one, even when the pack has a cheaper direct recipe for it
+            double lower = values.get(potionKey(form - 1, type));
+            if (lower > 0) {
+                floor = Math.max(floor, lower * ModConfig.brewingStepMultiplier);
+            }
+        }
+        return floor;
     }
 
     private boolean anyGuessed(long[] keys) {
@@ -1042,6 +1426,15 @@ public final class ValueRegistry {
                 return true;
             }
             if (!visited.add(key)) {
+                continue;
+            }
+            long smeltsInto = smeltTarget.get(key);
+            if (smeltsInto >= 0 && sources.get(key) == Source.SMELTS_INTO) {
+                // Priced from what it smelts into, so it depends on that
+                if (size == stack.length) {
+                    stack = Arrays.copyOf(stack, stack.length * 2);
+                }
+                stack[size++] = smeltsInto;
                 continue;
             }
             int index = via.get(key);
@@ -1184,7 +1577,7 @@ public final class ValueRegistry {
     private void resetDerived() {
         for (long key : values.keySet().toLongArray()) {
             Source source = sources.get(key);
-            if (source == Source.RECIPE || source == Source.SMELTING
+            if (source == Source.RECIPE || source == Source.SMELTING || source == Source.BREWING
                     || (source == Source.FALLBACK && recipeOutputs.contains(key))) {
                 values.remove(key);
                 sources.remove(key);
@@ -1217,7 +1610,7 @@ public final class ValueRegistry {
         Source source = sources.get(key);
         if (source == Source.FALLBACK) {
             result = true;
-        } else if (depth < 64 && (source == Source.RECIPE || source == Source.SMELTING)) {
+        } else if (depth < 64 && (source == Source.RECIPE || source == Source.SMELTING || source == Source.BREWING)) {
             int index = via.get(key);
             long[] chosen = index < 0 ? null : recipes.get(index).chosen;
             if (chosen != null) {
@@ -1324,18 +1717,20 @@ public final class ValueRegistry {
     }
 
     private void assignFallback(long key) {
-        Item item = itemOf(key);
-        if (item == null) {
+        ItemStack stack = stackOf(key);
+        if (stack.isEmpty()) {
             return;
         }
-        int meta = metaOf(key);
-        ItemStack stack = new ItemStack(item, 1, meta == WILDCARD ? 0 : meta);
         values.put(key, Math.max(MIN_VALUE, fallback(stack)));
         sources.put(key, Source.FALLBACK);
     }
 
     /** The guess for things with no recipe and no base value: rarity, stackability and durability. */
     public static double fallback(ItemStack stack) {
+        long potion = potionKey(stack);
+        if (potion >= 0) {
+            return potionFallback(potion);
+        }
         double value = ModConfig.fallbackCommon;
         try {
             IRarity rarity = stack.getItem().getForgeRarity(stack);
@@ -1362,6 +1757,26 @@ public final class ValueRegistry {
             // Keep the rarity guess
         }
         return value;
+    }
+
+    /**
+     * A potion that no brewing recipe makes (loot only): potionValue for one with an effect, a bit more for splash and
+     * lingering bottles, an eighth for a tipped arrow; plain bottles (water, awkward, thick, mundane) are cheap.
+     */
+    private static double potionFallback(long key) {
+        PotionType type = potionTypeOf(key);
+        boolean effect = type != null && !type.getEffects().isEmpty();
+        double base = effect ? ModConfig.potionValue : ModConfig.fallbackCommon;
+        switch (formOf(key)) {
+            case 1:
+                return base * ModConfig.brewingStepMultiplier;
+            case 2:
+                return base * ModConfig.brewingStepMultiplier * ModConfig.brewingStepMultiplier;
+            case FORM_ARROW:
+                return base * ModConfig.brewingStepMultiplier * ModConfig.brewingStepMultiplier / 8;
+            default:
+                return base;
+        }
     }
 
     private void applyMultipliers() {
@@ -1401,10 +1816,11 @@ public final class ValueRegistry {
         }
         List<ItemStack> stacks = new ArrayList<>();
         for (long key : keys.toLongArray()) {
-            Item item = itemOf(key);
-            int meta = metaOf(key);
-            if (item != null && item != Items.AIR && meta != WILDCARD) {
-                stacks.add(new ItemStack(item, 1, meta));
+            if (metaOf(key) != WILDCARD) {
+                ItemStack stack = stackOf(key);
+                if (!stack.isEmpty()) {
+                    stacks.add(stack);
+                }
             }
         }
         return stacks;
@@ -1412,11 +1828,19 @@ public final class ValueRegistry {
 
     private void buildCatalog(List<ItemStack> targetStacks) {
         for (ItemStack stack : targetStacks) {
-            if (stack.hasTagCompound()) {
-                // Spawn eggs, potions, enchanted books: their value lives in NBT, a blank one would be pointless
+            long key = key(stack);
+            PotionType potion = null;
+            if (isPotionKey(key)) {
+                // Potions are offered when a brewing recipe makes them (or the pack list prices them); tipped
+                // arrows and loot-only potion types are not
+                if (!ModConfig.potionResults || formOf(key) == FORM_ARROW || !(brewedKeys.contains(key) || fixed.contains(key))) {
+                    continue;
+                }
+                potion = potionTypeOf(key);
+            } else if (stack.hasTagCompound()) {
+                // Spawn eggs, enchanted books: their value lives in NBT, a blank one would be pointless
                 continue;
             }
-            long key = key(stack);
             if (catalogByKey.containsKey(key)) {
                 continue;
             }
@@ -1446,7 +1870,7 @@ public final class ValueRegistry {
             } catch (Throwable t) {
                 maxStack = 1;
             }
-            CatalogEntry entry = new CatalogEntry(stack.getItem(), metaOf(key), value, maxStack, source);
+            CatalogEntry entry = new CatalogEntry(stack.getItem(), metaOf(key), potion, value, maxStack, source);
             catalog.add(entry);
             catalogByKey.put(key, entry);
         }

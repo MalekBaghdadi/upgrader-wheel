@@ -5,7 +5,7 @@ import java.util.Map;
 
 /**
  * Built-in starting values for raw materials: things you mine, farm, kill or loot rather than craft.
- * Recipes then price everything made from them. The scale: iron ingot 256, gold ingot 2048, diamond 8192.
+ * Recipes then price everything made from them. The scale: iron ingot 1024, gold ingot 2048, diamond 8192.
  * Seeds can only be lowered by a cheaper recipe; config overrides are the way to pin a value.
  */
 final class BaseValues {
@@ -15,6 +15,9 @@ final class BaseValues {
 
     /** Ore dictionary names for common mod materials. Applied only to items with no other base value. */
     static final Map<String, Double> ORES = new LinkedHashMap<>();
+
+    /** Potion types, for the drinkable bottle; splash, lingering and stronger versions come from brewing recipes. */
+    static final Map<String, Double> POTIONS = new LinkedHashMap<>();
 
     private BaseValues() {
     }
@@ -98,8 +101,10 @@ final class BaseValues {
         // Ores and minerals
         item("minecraft:coal@0", 128);
         item("minecraft:coal_ore", 128);
-        item("minecraft:iron_ore", 256);
+        item("minecraft:iron_ore", 1024);
+        item("minecraft:iron_ingot", 1024);
         item("minecraft:gold_ore", 2048);
+        item("minecraft:gold_ingot", 2048);
         item("minecraft:diamond", 8192);
         item("minecraft:diamond_ore", 8192);
         item("minecraft:emerald", 16384);
@@ -152,13 +157,14 @@ final class BaseValues {
         item("minecraft:saddle", 192);
         item("minecraft:name_tag", 192);
         item("minecraft:experience_bottle", 256);
-        item("minecraft:iron_horse_armor", 1280);
-        item("minecraft:golden_horse_armor", 4096);
-        item("minecraft:diamond_horse_armor", 16384);
-        item("minecraft:chainmail_helmet", 1280);
-        item("minecraft:chainmail_chestplate", 2048);
-        item("minecraft:chainmail_leggings", 1792);
-        item("minecraft:chainmail_boots", 1024);
+        // Horse armor that smelts back into more than this is raised to what it smelts into
+        item("minecraft:iron_horse_armor", 5120);
+        item("minecraft:golden_horse_armor", 8192);
+        item("minecraft:diamond_horse_armor", 32768);
+        item("minecraft:chainmail_helmet", 5120);
+        item("minecraft:chainmail_chestplate", 8192);
+        item("minecraft:chainmail_leggings", 7168);
+        item("minecraft:chainmail_boots", 4096);
         item("minecraft:golden_apple@1", 32768);
         item("minecraft:totem_of_undying", 16384);
         item("minecraft:elytra", 32768);
@@ -168,15 +174,18 @@ final class BaseValues {
             item("minecraft:record_" + record, 2048);
         }
 
-        // Common mod metals and gems (ore dictionary)
-        ore(128, "ingotCopper", "oreCopper", "ingotAluminum", "oreAluminum", "ingotAluminium", "oreAluminium", "ingotZinc", "oreZinc");
-        ore(160, "ingotBronze", "ingotBrass");
-        ore(192, "ingotTin", "oreTin", "ingotConstantan");
-        ore(256, "ingotLead", "oreLead", "ingotInvar");
-        ore(384, "ingotNickel", "oreNickel", "ingotOsmium", "oreOsmium");
-        ore(512, "ingotSilver", "oreSilver", "ingotSteel", "ingotUranium", "oreUranium");
-        ore(1024, "ingotCobalt", "oreCobalt", "ingotArdite", "oreArdite", "gemMalachite", "gemAmber");
-        ore(1280, "ingotElectrum");
+        // A bottle of water: brewing starts here (potions with an effect are worth at least potionValue)
+        POTIONS.put("minecraft:water", 16.0);
+
+        // Common mod metals and gems (ore dictionary). Base metals are priced against iron (1024)
+        ore(512, "ingotCopper", "oreCopper", "ingotAluminum", "oreAluminum", "ingotAluminium", "oreAluminium", "ingotZinc", "oreZinc");
+        ore(640, "ingotBronze", "ingotBrass");
+        ore(768, "ingotTin", "oreTin", "ingotConstantan");
+        ore(1024, "ingotLead", "oreLead", "ingotInvar", "gemMalachite", "gemAmber");
+        ore(1280, "ingotNickel", "oreNickel", "ingotOsmium", "oreOsmium");
+        ore(1536, "ingotSilver", "oreSilver", "ingotSteel", "ingotUranium", "oreUranium");
+        ore(1792, "ingotElectrum");
+        ore(3072, "ingotCobalt", "oreCobalt", "ingotArdite", "oreArdite");
         ore(2048, "ingotTitanium", "oreTitanium", "gemOnyx", "gemJade");
         ore(4096, "ingotPlatinum", "orePlatinum", "ingotMithril", "oreMithril",
                 "gemRuby", "oreRuby", "gemSapphire", "oreSapphire", "gemPeridot", "orePeridot",

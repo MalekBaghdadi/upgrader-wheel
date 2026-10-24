@@ -117,8 +117,7 @@ public class CommandUpgrader extends CommandBase {
     }
 
     private static String idOf(ItemStack stack) {
-        String id = String.valueOf(stack.getItem().getRegistryName());
-        return stack.getHasSubtypes() ? id + ":" + stack.getMetadata() : id;
+        return ValueRegistry.configId(stack);
     }
 
     private void showValue(ICommandSender sender) throws CommandException {
@@ -136,7 +135,7 @@ public class CommandUpgrader extends CommandBase {
             send(sender, TextFormatting.GRAY + "This stack as a bet (count, durability, enchantments): " + TextFormatting.WHITE
                     + ModConfig.formatNumber(ValueRegistry.roundValue(stackValue)));
         }
-        send(sender, TextFormatting.GRAY + (explanation.listed ? "Can be won." : "Not offered as a result (no creative tab, NBT, blacklisted or below minTargetValue)."));
+        send(sender, TextFormatting.GRAY + (explanation.listed ? "Can be won." : "Not offered as a result (no creative tab, NBT, not brewable, blacklisted or below minTargetValue)."));
     }
 
     private void setValue(ICommandSender sender, @Nullable Double value) throws CommandException {

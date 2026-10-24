@@ -105,7 +105,7 @@ public final class UpgradeService {
         return false;
     }
 
-    public static void handleRoll(EntityPlayerMP player, int windowId, int itemId, int meta, int amount) {
+    public static void handleRoll(EntityPlayerMP player, int windowId, int itemId, int meta, String potion, int amount) {
         Container open = player.openContainer;
         if (!(open instanceof ContainerUpgrader) || open.windowId != windowId) {
             return;
@@ -129,7 +129,7 @@ public final class UpgradeService {
         }
 
         Item targetItem = Item.getItemById(itemId);
-        ValueRegistry.CatalogEntry target = targetItem == null ? null : registry.catalogEntry(targetItem, meta);
+        ValueRegistry.CatalogEntry target = targetItem == null ? null : registry.catalogEntry(targetItem, meta, potion);
         if (target == null) {
             reply(player, windowId, Codes.Roll.BAD_TARGET, 0);
             return;
@@ -164,8 +164,7 @@ public final class UpgradeService {
         if (stack.getItem().getRegistryName() == null) {
             return "?";
         }
-        String id = stack.getItem().getRegistryName().toString();
-        return stack.getHasSubtypes() ? id + ":" + stack.getMetadata() : id;
+        return ValueRegistry.configId(stack);
     }
 
     private static void reply(EntityPlayerMP player, int windowId, Codes.Roll code, double chance) {

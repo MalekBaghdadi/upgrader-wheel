@@ -10,12 +10,16 @@ import javax.annotation.Nullable;
 /**
  * An item selector from the config: modid:item, modid:item:meta, modid:*, ore:oreName,
  * or a path with * wildcards such as srparasites:itemmobspawner_* or *:*spawn_egg* (any mod, any meta).
+ * Potions are picked by potion type: potion:potioncore:flight (the drinkable bottle), splash:..., lingering:...,
+ * arrow:... (tipped arrows); the type may use * as well (potion:potioncore:long_*).
  */
 public final class ItemPattern {
 
     public enum Kind {
-        ITEM, ITEM_META, MOD, ORE, GLOB
+        ITEM, ITEM_META, MOD, ORE, GLOB, POTION
     }
+
+    private static final String[] POTION_PREFIXES = {"potion", "splash", "lingering", "arrow"};
 
     public final Kind kind;
     public final String namespace;
@@ -23,17 +27,30 @@ public final class ItemPattern {
     public final int meta;
     public final String ore;
     public final String text;
+    /** For POTION patterns: 0 potion, 1 splash, 2 lingering, 3 tipped arrow. */
+    public final int potionForm;
     @Nullable
     private final java.util.regex.Pattern glob;
 
     private ItemPattern(Kind kind, String namespace, String path, int meta, String ore, String text) {
+        this(kind, namespace, path, meta, ore, text, -1);
+    }
+
+    private ItemPattern(Kind kind, String namespace, String path, int meta, String ore, String text, int potionForm) {
         this.kind = kind;
         this.namespace = namespace;
         this.path = path;
         this.meta = meta;
         this.ore = ore;
         this.text = text;
-        this.glob = kind == Kind.GLOB ? java.util.regex.Pattern.compile(globToRegex(path)) : null;
+        this.potionForm = potionForm;
+        this.glob = kind == Kind.GLOB || kind == Kind.POTION ? java.util.regex.Pattern.compile(globToRegex(path)) : null;
+    }
+
+    /** For POTION patterns: whether the potion type with this registry name is selected. */
+    public boolean matchesPotionName(ResourceLocation id) {
+        return kind == Kind.POTION && (namespace.equals("*") || id.getNamespace().equals(namespace))
+                && glob != null && glob.matcher(id.getPath()).matches();
     }
 
     private static String globToRegex(String glob) {
@@ -76,6 +93,26 @@ public final class ItemPattern {
             return ore.isEmpty() ? null : new ItemPattern(Kind.ORE, null, null, 0, ore, s);
         }
         String[] parts = s.split(":");
+        for (int form = 0; form < POTION_PREFIXES.length; form++) {
+            if (parts.length >= 2 && parts[0].trim().equalsIgnoreCase(POTION_PREFIXES[form])) {
+                // potion:<namespace>:<type>, potion:<type> (minecraft), or potion:* (every type)
+                String namespace;
+                String type;
+                if (parts.length == 2) {
+                    type = parts[1].trim().toLowerCase();
+                    namespace = type.equals("*") ? "*" : "minecraft";
+                } else if (parts.length == 3) {
+                    namespace = parts[1].trim().toLowerCase();
+                    type = parts[2].trim().toLowerCase();
+                } else {
+                    return null;
+                }
+                if (namespace.isEmpty() || type.isEmpty()) {
+                    return null;
+                }
+                return new ItemPattern(Kind.POTION, namespace, type, 0, null, s, form);
+            }
+        }
         if (parts.length < 2 || parts.length > 3) {
             return null;
         }
@@ -127,6 +164,13 @@ public final class ItemPattern {
             case ITEM_META:
                 return id.getNamespace().equals(namespace) && id.getPath().equals(path)
                         && ValueRegistry.normalizeMeta(item, stack.getMetadata()) == ValueRegistry.normalizeMeta(item, meta);
+            case POTION: {
+                if (ValueRegistry.potionKey(stack) < 0 || ValueRegistry.potionForm(item) != potionForm) {
+                    return false;
+                }
+                ResourceLocation type = net.minecraft.potion.PotionUtils.getPotionFromItem(stack).getRegistryName();
+                return type != null && matchesPotionName(type);
+            }
             case ORE:
                 try {
                     for (int oreId : OreDictionary.getOreIDs(stack)) {

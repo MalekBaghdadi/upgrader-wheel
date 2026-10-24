@@ -3,6 +3,7 @@ package com.malek.upgraderwheel.network;
 import com.malek.upgraderwheel.logic.UpgradeService;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraftforge.fml.common.network.ByteBufUtils;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
 import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
@@ -16,14 +17,17 @@ public class PacketRoll implements IMessage {
     public int itemId;
     public int meta;
     public int amount;
+    /** Potion type registry name for potion results, "" otherwise. */
+    public String potion = "";
 
     public PacketRoll() {
     }
 
-    public PacketRoll(int windowId, int itemId, int meta, int amount) {
+    public PacketRoll(int windowId, int itemId, int meta, String potion, int amount) {
         this.windowId = windowId;
         this.itemId = itemId;
         this.meta = meta;
+        this.potion = potion == null ? "" : potion;
         this.amount = amount;
     }
 
@@ -33,6 +37,7 @@ public class PacketRoll implements IMessage {
         buf.writeInt(itemId);
         buf.writeShort(meta);
         buf.writeShort(amount);
+        ByteBufUtils.writeUTF8String(buf, potion);
     }
 
     @Override
@@ -41,6 +46,7 @@ public class PacketRoll implements IMessage {
         itemId = buf.readInt();
         meta = buf.readUnsignedShort();
         amount = buf.readUnsignedShort();
+        potion = ByteBufUtils.readUTF8String(buf);
     }
 
     public static class Handler implements IMessageHandler<PacketRoll, IMessage> {
@@ -48,7 +54,7 @@ public class PacketRoll implements IMessage {
         public IMessage onMessage(PacketRoll message, MessageContext ctx) {
             EntityPlayerMP player = ctx.getServerHandler().player;
             player.getServer().addScheduledTask(() ->
-                    UpgradeService.handleRoll(player, message.windowId, message.itemId, message.meta, message.amount));
+                    UpgradeService.handleRoll(player, message.windowId, message.itemId, message.meta, message.potion, message.amount));
             return null;
         }
     }
