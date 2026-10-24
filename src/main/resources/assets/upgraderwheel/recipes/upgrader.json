@@ -1,0 +1,28 @@
+{
+  "conditions": [
+    {
+      "type": "upgraderwheel:item_mode"
+    }
+  ],
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "GDG",
+    "DAD",
+    "GDG"
+  ],
+  "key": {
+    "G": {
+      "item": "minecraft:gold_ingot"
+    },
+    "D": {
+      "item": "minecraft:diamond"
+    },
+    "A": {
+      "item": "minecraft:anvil",
+      "data": 0
+    }
+  },
+  "result": {
+    "item": "upgraderwheel:upgrader"
+  }
+}

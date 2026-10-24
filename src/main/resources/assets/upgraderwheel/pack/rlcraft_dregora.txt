@@ -1,0 +1,107 @@
+# Upgrader Wheel - pack value list (RLCraft Dregora)
+#
+# Values for things recipes cannot price: boss and mob drops, loot, dragon parts.
+# Everything crafted from these is priced from them automatically (a dragon bone sword is 2 dragon bones
+# and a witherbone), so fixing one raw material fixes everything made from it.
+#
+# Format:   modid:item = value          (all variants)
+#           modid:item:meta = value     (one variant)
+#           modid:prefix_* = value      (* matches any text; *:*text* matches any mod)
+#           ore:oreDictName = value
+#           modid:item = nowin          (can still be bet, but is never offered as a result)
+# Values:   a number, or 2d = 2 diamonds, 3i = 3 iron ingots, 1g = 1 gold ingot, 1e = 1 emerald
+# Values in config/upgraderwheel.cfg "overrides" win over this file.
+# After editing: /upgrader reload in game (or re-enter the world).
+#
+# Scale: iron ingot 256, gold ingot 2048, diamond 8192, emerald 16384, ender pearl 1024, nether star 139264.
+
+# ---------------------------------------------------------------- Ice and Fire: dragons
+iceandfire:dragonbone = 8192                 # 1 diamond. Bone gear is a bit better than diamond gear
+iceandfire:witherbone = 1024                 # tool handles, from wither skeletons
+iceandfire:dragonscales_* = 12288            # every color; a scale armor set takes 24
+iceandfire:fire_dragon_blood = 32768         # 1 per weapon upgrade
+iceandfire:ice_dragon_blood = 32768
+iceandfire:lightning_dragon_blood = 32768
+iceandfire:fire_dragon_heart = 65536         # 1 per dragon
+iceandfire:ice_dragon_heart = 65536
+iceandfire:lightning_dragon_heart = 65536
+iceandfire:fire_dragon_flesh = 2048
+iceandfire:ice_dragon_flesh = 2048
+iceandfire:lightning_dragon_flesh = 2048
+iceandfire:dragon_skull = 65536              # all three elements
+iceandfire:dragonegg_* = 131072              # every color
+iceandfire:egginice = 131072
+
+# ---------------------------------------------------------------- Ice and Fire: other creatures
+iceandfire:sea_serpent_scales_* = 3072
+iceandfire:sea_serpent_fang = 2048
+iceandfire:seaserpent_skull = 16384
+iceandfire:shiny_scales = 2048
+iceandfire:hippocampus_fin = 512
+iceandfire:deathworm_chitin = 1024
+iceandfire:deathworm_egg = 4096
+iceandfire:deathworm_egg:1 = 16384           # giant
+iceandfire:myrmex_desert_chitin = 512
+iceandfire:myrmex_jungle_chitin = 512
+iceandfire:myrmex_resin = 256
+iceandfire:myrmex_resin_sticky = 256
+iceandfire:myrmex_stinger = 2048
+iceandfire:myrmex_desert_egg = 8192
+iceandfire:myrmex_jungle_egg = 8192
+iceandfire:troll_tusk = 2048
+iceandfire:troll_leather_forest = 1024
+iceandfire:troll_leather_frost = 1024
+iceandfire:troll_leather_mountain = 1024
+iceandfire:troll_skull = 8192
+iceandfire:hydra_fang = 4096
+iceandfire:hydra_heart = 32768
+iceandfire:hydra_skull = 32768
+iceandfire:gorgon_head = 65536
+iceandfire:hippogryph_egg = 16384
+iceandfire:hippogryph_skull = 8192
+iceandfire:cockatrice_skull = 8192
+iceandfire:cyclops_skull = 32768
+iceandfire:stymphalian_skull = 4096
+iceandfire:amphithere_skull = 8192
+iceandfire:stymphalian_bird_feather = 256
+iceandfire:amphithere_feather = 512
+iceandfire:pixie_dust = 512
+iceandfire:dread_shard = 512
+iceandfire:ghost_ingot = 8192
+iceandfire:manuscript = 512
+iceandfire:fire_lily = 256
+iceandfire:frost_lily = 256
+iceandfire:lightning_lily = 256
+
+# Horns and statues hold a creature in their data; a blank one is broken
+iceandfire:dragon_horn_fire = nowin
+iceandfire:dragon_horn_ice = nowin
+iceandfire:dragon_horn_lightning = nowin
+iceandfire:stone_statue = nowin
+iceandfire:dread_spawner = nowin
+
+# ---------------------------------------------------------------- Scaling Health
+scalinghealth:crystalshard = 4096            # 9 make a Heart Container
+scalinghealth:enchanted_heart = 32768
+scalinghealth:cursed_heart = 32768
+
+# ---------------------------------------------------------------- Enchanted books
+# A book is worth little by itself; enchantment levels add enchantmentLevelValue each (config)
+minecraft:enchanted_book = 160
+
+# ---------------------------------------------------------------- Never offered as results
+# Spawn eggs, spawners, admin and debug items
+*:*spawn_egg* = nowin
+*:*spawnegg* = nowin
+*:*mob_spawner* = nowin
+srparasites:itemmobspawner_* = nowin
+srparasites:itemevolve = nowin
+srparasites:itemassimilate = nowin
+srparasites:itemdevolve = nowin
+srparasites:itemvariant = nowin
+srparasites:itemtab = nowin
+srparasites:evclock = nowin
+srparasites:lure_* = nowin                   # lures call parasites to you
+champions:champion_egg = nowin
+lycanitesmobs:*spawn = nowin                 # elemental spawn eggs
+lycanitesmobs:equipment = nowin              # crafted equipment lives in its data

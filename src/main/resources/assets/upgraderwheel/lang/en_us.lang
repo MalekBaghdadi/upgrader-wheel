@@ -1,0 +1,47 @@
+item.upgraderwheel.upgrader.name=Upgrader
+item.upgraderwheel.upgrader.tooltip=Right-click to gamble an item for a better one.
+
+key.upgraderwheel.open=Open the Upgrader
+key.categories.upgraderwheel=Upgrader Wheel
+chat.upgraderwheel.key_hint=Press %s to open the Upgrader: gamble an item for a better one.
+chat.upgraderwheel.need_item=You need an Upgrader in your inventory.
+
+gui.upgraderwheel.title=Upgrader
+gui.upgraderwheel.bet_label=Bet
+gui.upgraderwheel.result_label=Result
+gui.upgraderwheel.upgrade=Upgrade
+gui.upgraderwheel.confirm=Sure? %s
+gui.upgraderwheel.spinning=Spinning...
+gui.upgraderwheel.loading=Loading item values...
+gui.upgraderwheel.search_hint=Search... (@mod)
+gui.upgraderwheel.no_results=Nothing to show
+gui.upgraderwheel.count=%s results
+gui.upgraderwheel.pick_result=Pick a result from the list.
+gui.upgraderwheel.ready=Click Upgrade to spin.
+gui.upgraderwheel.confirm_hint=Click again to spin.
+gui.upgraderwheel.locked=Odds under %s are locked.
+gui.upgraderwheel.won=You won %s!
+gui.upgraderwheel.lost=Lost. The item is gone.
+gui.upgraderwheel.timeout=The server did not answer.
+gui.upgraderwheel.value=Value: %s
+gui.upgraderwheel.value_each=Value: %s each
+gui.upgraderwheel.chance=Win chance: %s
+gui.upgraderwheel.wheel.bet=Your item: %s
+gui.upgraderwheel.wheel.target=Result: %s
+gui.upgraderwheel.wheel.edge=The house keeps %s; odds cap at %s.
+
+gui.upgraderwheel.bet.ok=
+gui.upgraderwheel.bet.empty=Put an item in the bet slot.
+gui.upgraderwheel.bet.blacklisted=This item can't be bet.
+gui.upgraderwheel.bet.has_contents=Empty this item first.
+gui.upgraderwheel.bet.no_value=This item has no value.
+gui.upgraderwheel.bet.not_ready=Waiting for the server...
+
+gui.upgraderwheel.roll.win=
+gui.upgraderwheel.roll.lose=
+gui.upgraderwheel.roll.no_bet=Put an item in the bet slot.
+gui.upgraderwheel.roll.bet_not_allowed=This item can't be bet.
+gui.upgraderwheel.roll.bad_target=That result is not available.
+gui.upgraderwheel.roll.odds_too_low=Odds under %s are locked.
+gui.upgraderwheel.roll.rate_limited=Slow down: too many spins.
+gui.upgraderwheel.roll.not_ready=The server is still pricing items.

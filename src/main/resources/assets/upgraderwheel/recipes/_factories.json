@@ -1,0 +1,5 @@
+{
+  "conditions": {
+    "item_mode": "com.malek.upgraderwheel.item.ItemModeCondition"
+  }
+}
