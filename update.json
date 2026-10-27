@@ -1,0 +1,12 @@
+{
+  "homepage": "https://github.com/MalekBaghdadi/upgrader-wheel/releases",
+  "promos": {
+    "1.12.2-latest": "1.2.0",
+    "1.12.2-recommended": "1.2.0"
+  },
+  "1.12.2": {
+    "1.2.0": "Potions valued by type and winnable, brewing recipes, iron ingot 1024, diamonds no longer undervalued, many item values fixed.",
+    "1.1.0": "Wheel key, pack value list, gear estimates.",
+    "1.0.0": "First version."
+  }
+}
