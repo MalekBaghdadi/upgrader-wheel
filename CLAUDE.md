@@ -11,7 +11,10 @@ mod); see THIRD_PARTY_NOTICES.md.
 
 ## Paths (Windows)
 
-- Project: `C:\Users\Malek Baghdadi\Downloads\upgrader-wheel` (git repo, branch `main`, local only so far)
+- Project: `C:\Users\Malek Baghdadi\Downloads\upgrader-wheel` (git repo, branch `main`, `origin` =
+  github.com/MalekBaghdadi/upgrader-wheel, PRIVATE until the README is done; see "Still to do" 4)
+- Continuing on another machine: `git clone` the repo; every path below is specific to Malek's Windows PC (game
+  instances, JDK, harness), so adjust them. Gradle fetches Java 8 itself; the harness server is NOT in git (see below).
 - Game instance (TLauncher): `C:\Users\Malek Baghdadi\AppData\Roaming\.minecraft\versions\RLCraftDragoraEZ`
   - `mods\upgraderwheel-<version>.jar` (currently still the old 1.1.0 jar; the new build has NOT been installed)
   - `config\upgraderwheel.cfg`: odds, rules (`needItem`), value options, `overrides`
@@ -36,11 +39,11 @@ mod); see THIRD_PARTY_NOTICES.md.
 ## Headless test harness (use it after every engine change)
 
 A Forge 1.12.2 dedicated server with the whole Dregora pack (client-only mods removed) lives in the scratchpad of the
-session that made it: `C:\Users\MALEKB~1\AppData\Local\Temp\claude\C--Users-Malek-Baghdadi\5d3c2c4c-49bd-428b-9b13-1c66bbf6b952\scratchpad\`
-- `test.sh`: builds the mod, copies the jar into `server/mods`, boots the server with Java 8
+session that made it, on Malek's PC only (temp folder, may be gone): `C:\Users\MALEKB~1\AppData\Local\Temp\claude\C--Users-Malek-Baghdadi\5d3c2c4c-49bd-428b-9b13-1c66bbf6b952\scratchpad\server`
+- `tools/test.sh` (run `SERVER=<server folder> sh tools/test.sh`): builds the mod, copies the jar into `server/mods`, boots the server with Java 8
   (`C:\Program Files\Java\jre1.8.0_351`), sends `stop` after "Done", retries up to 4 times (a third-party mixin crashes
   at startup about half the time; it is not ours), then the fresh CSV is `server/config/upgraderwheel-values.csv`.
-  One cycle is about 1 minute. `PACK=<file> ./test.sh` copies a pack list in first.
+  One cycle is about 1 minute. `PACK=<file>` copies a pack list in first.
 - If that folder is gone, recreate: download `forge-1.12.2-14.23.5.2860-installer.jar`, `--installServer` into a new
   folder, copy the instance's `mods` (minus OptiFine, OptifineCITPatch, mod-director, RLFoliage, DynamicSurroundingsHuds,
   fancymenu, konkrete, BHMenu, EntityCulling, particleculling, ChunkAnimator, MoBends, SoundFilters, FancyBlockParticles,
@@ -121,7 +124,7 @@ Not yet tested in game by Malek (potion results on the wheel, tooltips, new pric
 jar); probably fine double-clicked, but consider `call "%~dp0gradlew.bat"` and building before deleting the old jar.
 Run Gradle from Bash with `JAVA_HOME` set, and quote paths containing "Malek Baghdadi" (use "$HOME/...").
 
-Uncommitted in the working tree (review, then commit; `CLAUDE.md` too):
+Also committed (`cc3ac2a`, `3f62ea2`):
 - `gradle.properties`: `mod_version = 1.2.0`, `mod_url` and `mod_update_json` pointing at github.com/MalekBaghdadi/upgrader-wheel.
 - `update.json` (Forge update checker file, served from the repo's main branch).
 - `install/install.ps1`: Windows installer. Finds instances (CurseForge, official/TLauncher incl. per-version folders,
@@ -142,8 +145,11 @@ Still to do, in rough order:
    Forge 1.12.2, TLauncher, Prism/MultiMC, ATLauncher...), server/LAN (mod on server and every client; values come from
    the server's config), other packs, uninstall, troubleshooting; then playing, values/tuning (new scale, potion lines,
    own pack file), building. Update CHANGELOG.md with 1.2.0.
-4. Create the public GitHub repo `MalekBaghdadi/upgrader-wheel` with `gh` (logged in as MalekBaghdadi, scopes repo/gist/
-   read:org; NO `workflow` scope, so no `.github/workflows` files), push `main`, create release `v1.2.0` with the jar
+4. The repo `MalekBaghdadi/upgrader-wheel` exists and `main` is pushed, but it was created PRIVATE (so work could move
+   between machines before the README was ready). When step 3 is done: `gh repo edit MalekBaghdadi/upgrader-wheel
+   --visibility public --accept-visibility-change-consequences` (the installer and `update.json` need public raw access;
+   `gh auth status` on Malek's PC now lists the `workflow` scope, earlier notes said it did not), then create release
+   `v1.2.0` with the jar
    (non-dev), `Install-UpgraderWheel.bat` and `install.ps1` attached. Then test the installer's download path.
 5. Malek tests in game: potion results on the wheel (icon, name, search `@potioncore`, winning one gives the right
    potion), tooltips, `/upgrader value` on a potion, multiplayer if possible.
