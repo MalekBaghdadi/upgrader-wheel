@@ -55,6 +55,7 @@ public final class ModConfig {
     public static String[] blacklist = new String[0];
     public static String[] targetBlacklist = new String[0];
     public static String[] betBlacklist = new String[0];
+    public static boolean hideJeiHidden = true;
     public static int attemptLimit = 0;
     public static int attemptWindowSeconds = 60;
     public static boolean logRolls = true;
@@ -134,6 +135,10 @@ public final class ModConfig {
         targetBlacklist = c.get(CAT_RULES, "targetBlacklist", defaultTargetBlacklist(),
                 "Items that can never be won. Items without a creative tab and items with NBT data are never offered anyway.").getStringList();
         betBlacklist = c.get(CAT_RULES, "betBlacklist", new String[0], "Items that can never be bet.").getStringList();
+        hideJeiHidden = c.getBoolean("hideJeiHidden", CAT_RULES, true,
+                "Never offer items the modpack hides from JEI (config/jei/itemBlacklist.cfg): packs hide items players are not\n"
+                        + "meant to get (disabled features, items of mods that are not installed). A value in the pack list or\n"
+                        + "overrides offers one anyway.");
         attemptLimit = Math.max(0, c.getInt("attemptLimit", CAT_RULES, 0, 0, 100000,
                 "Most spins a player can do per window. 0 means no limit."));
         attemptWindowSeconds = Math.max(1, c.getInt("attemptWindowSeconds", CAT_RULES, 60, 1, 86400,

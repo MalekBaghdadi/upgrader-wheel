@@ -22,7 +22,7 @@ mod); see THIRD_PARTY_NOTICES.md.
   - `config\upgraderwheel-values.csv`: every value with source and recipe, rewritten each time values are worked out.
     If it is open in Excel the write fails silently (log: "Could not write upgraderwheel-values.csv"), leaving a STALE file.
   - `logs\latest.log`: look for "Upgrader values ready:"
-  - `scripts\*.zs`: the pack's CraftTweaker scripts. `Shiv.zs` holds ~225 brewing recipes (Flight = Thick + Pixie Dust,
+  - `scripts\*.zs`: the pack's CraftTweaker scripts. `Shiv.zs` holds ~225 brewing recipes (Flight = Thick + *Familiar Fauna* Pixie Dust,
     Recall = Awkward + Warp Scroll, Wormhole = Recall + Eye of Ender, Thick = Water + Bone Mushroom...)
 - Other instances on this PC: `C:\Users\Malek Baghdadi\curseforge\minecraft\Instances\RLCraft Dregora`, plus RLCraft ones.
   `%APPDATA%\.minecraft\mods` has a stray `upgraderwheel-1.0.0.jar` (shared folder, not the Dregora instance).
@@ -30,7 +30,9 @@ mod); see THIRD_PARTY_NOTICES.md.
 ## Build and install
 
 - JDK 25 runs Gradle (`JAVA_HOME="/c/Program Files/Eclipse Adoptium/jdk-25.0.4.101-hotspot"`); JDK 21 also installed.
-  Gradle downloads Java 8 for compiling Minecraft. Build: `./gradlew build` (seconds after the first time).
+  It has to be 25: the CurseForgeGradle plugin refuses older JVMs ("Dependency requires at least JVM runtime version 25").
+  Gradle downloads Java 8 for compiling Minecraft. Build: `./gradlew build` (seconds after the first time); `gradlew`
+  is not executable in git, so on Linux/macOS run `sh ./gradlew build`.
 - `update.bat` (close Minecraft first): deletes `mods\upgraderwheel-*.jar`, builds, copies the new jar into the
   TLauncher mods folder.
 - Git Bash gotcha: heredocs with many quotes/backticks/backslashes break. Write Python edit scripts to a file and run
@@ -38,18 +40,21 @@ mod); see THIRD_PARTY_NOTICES.md.
 
 ## Headless test harness (use it after every engine change)
 
-A Forge 1.12.2 dedicated server with the whole Dregora pack (client-only mods removed) lives in the scratchpad of the
-session that made it, on Malek's PC only (temp folder, may be gone): `C:\Users\MALEKB~1\AppData\Local\Temp\claude\C--Users-Malek-Baghdadi\5d3c2c4c-49bd-428b-9b13-1c66bbf6b952\scratchpad\server`
-- `tools/test.sh` (run `SERVER=<server folder> sh tools/test.sh`): builds the mod, copies the jar into `server/mods`, boots the server with Java 8
-  (`C:\Program Files\Java\jre1.8.0_351`), sends `stop` after "Done", retries up to 4 times (a third-party mixin crashes
-  at startup about half the time; it is not ours), then the fresh CSV is `server/config/upgraderwheel-values.csv`.
-  One cycle is about 1 minute. `PACK=<file>` copies a pack list in first.
-- If that folder is gone, recreate: download `forge-1.12.2-14.23.5.2860-installer.jar`, `--installServer` into a new
-  folder, copy the instance's `mods` (minus OptiFine, OptifineCITPatch, mod-director, RLFoliage, DynamicSurroundingsHuds,
-  fancymenu, konkrete, BHMenu, EntityCulling, particleculling, ChunkAnimator, MoBends, SoundFilters, FancyBlockParticles,
-  Neat, LegendaryTooltips, Controlling, MouseTweaks, itlt, LoadingScreens, tlskincape, ResourceLoader, betterbiomeblend,
-  BlockOverlayFix, Toast Control, GooglyEyes, SpartanHUDBaubles, paintingselgui, InventoryTweaks), `config`, `scripts`;
-  `eula=true`; server.properties `online-mode=false`, `level-type=FLAT`, `max-tick-time=-1`.
+A Forge 1.12.2 dedicated server with the whole Dregora pack (client-only mods removed). Build one anywhere (Windows,
+Linux, a cloud session) with `python tools/make_harness.py <folder> <java 8 binary>`: it downloads the pack zip from the
+CurseForge CDN (Dregora v1.1.2b, the version Malek plays: same 6842 rows), resolves its 230 mods through api.cfwidget.com,
+installs Forge and copies config/scripts. About 600 MB, a few minutes. Java 8 for Linux:
+`https://api.adoptium.net/v3/binary/latest/8/ga/linux/x64/jre/hotspot/normal/eclipse`; JDK 25 the same with `25`/`jdk`.
+(Malek's PC had one in a temp folder: `C:\Users\MALEKB~1\AppData\Local\Temp\claude\C--Users-Malek-Baghdadi\5d3c2c4c-49bd-428b-9b13-1c66bbf6b952\scratchpad\server`.)
+- `SERVER=<folder>/server [JAVA8=<java>] [GRADLE_JDK=<jdk 25>] sh tools/test.sh`: builds the mod, copies the jar in,
+  boots the server, sends `stop` after "Done", retries up to 4 times (a third-party mixin crashes at startup about half
+  the time on Windows; it never did on Linux), then the fresh CSV is `server/config/upgraderwheel-values.csv`.
+  Java paths default to Malek's PC. One cycle is 1.5-2.5 minutes. `PACK=<file>` copies a pack list in first,
+  `NOBUILD=1` skips the build.
+- `ANALYZE=1` also starts the server with `-Dupgraderwheel.analyze=true` (`value/DropAnalyzer`): every mob kind is
+  killed 200 times by a fake player (drops recorded and cancelled) -> `config/upgraderwheel-drops.csv` (health, armor,
+  attack, boss, drops per kill), and every loot table (registered or shipped in a mod jar, not entity tables) is rolled
+  100 times -> `config/upgraderwheel-loot.csv`. About 45 s extra. Throwaway worlds only: mods react to deaths.
 - Only kill java processes whose command line contains `forge-1.12.2-14.23.5.2860.jar` (Gradle daemons also run java).
 - The GUI cannot be tested here (no way to drive the game window). Ask Malek to test client-side changes in game.
 
@@ -58,20 +63,41 @@ session that made it, on Malek's PC only (temp folder, may be gone): `C:\Users\M
 - `UpgraderWheel`: @Mod, rebuilds values on FMLServerStartedEvent.
 - `ModConfig`: classic Forge Configuration (`reload()` re-reads the file). `parseValue` accepts `2d`/`3i`/`1g`/`1e`
   (`i` = 1024 now). Value options include `potionValue` (8192), `brewingStepMultiplier` (1.25), `potionResults`,
-  `builtInPackList`.
+  `builtInPackList`; rules include `hideJeiHidden`.
 - `value/ValueRegistry`: the value engine (server side). Order in `build()`:
   creative stacks -> crafting recipes -> smelting -> `collectBrewing` (probes every Forge IBrewingRecipe with every potion
   type x bottle form and every creative stack; one ingredient makes 3 bottles) -> `addTippedArrowRecipes` ->
   overrides (cfg) -> pack lists -> BaseValues -> potion base values (water bottle 16) -> ore dictionary seeds ->
   `raiseSeedsToSmeltYield` (a seed that smelts into more than it's worth is raised, e.g. Diamond Pet Armor = 7 diamonds)
-  -> guesses for raw items no recipe makes (FALLBACK) -> `deriveAll()` (`relax()` = cheapest recipe, repeated; then
-  guesses for loop-only items) -> ores worth what they smelt into (SMELTS_INTO, target kept in `smeltTarget`) -> gear
-  estimates -> multipliers -> catalog.
+  -> mob drop estimates (DROP, only where nothing else priced it; `raiseDropsToYield`: a drop is worth at least what it
+  turns straight into) -> guesses for raw items no recipe makes (FALLBACK; unpriced music discs = a vanilla disc) ->
+  `deriveAll()` (`relax()` = cheapest recipe, repeated; then guesses for loop-only items) -> ores worth what they smelt
+  into (SMELTS_INTO, target kept in `smeltTarget`) -> gear estimates -> multipliers -> `findUnobtainable` (only made by
+  recipes needing an ingredient nothing provides, or by recipes needing such items) -> `computeCraftCosts` (cheapest
+  recipe at final values, for the printer check) -> catalog (skips unobtainable, and JEI-hidden unless pinned).
   Rules inside `relax()`: a recipe may not lower an item using an ingredient priced from that item (loops; SMELTS_INTO
   counts as depending on its output); guesses never lower a known value; a real recipe replaces a guessed value even if
-  higher; smelting one seed into another seed never lowers it; an item follows its own recipe upward when an ingredient
+  higher (and on a tie: before that fix, recipe order decided whether every wooden item was "guessed", so two worlds
+  with the same mods disagreed on ~120 values; now a fresh harness and an old one give identical CSVs, checked
+  2026-10-31); smelting one seed into another seed never lowers it; an item follows its own recipe upward when an ingredient
   is re-priced (unless that loops); brewing steps x1.25; potions with an effect never go below the potion floor
   (potionValue for drinkable, x1.25 splash, x1.5625 lingering, and never below the lower form of the same type x1.25).
+- Gear estimates (`estimateFromGear`/`gearValue`): gear is compared with the iron and diamond version of the same thing.
+  Yardsticks are found by name shape (`longsword_umbrium` -> `longsword_diamond`/`longsword_iron`, `stone_sword` ->
+  `diamond_sword`), then by class if the class has exactly one, then vanilla. Armor: vanilla iron/diamond of the slot,
+  score = armor + toughness. Tools (`ItemTool`): score = mining level + 1 (a stone axe hits as hard as a diamond one).
+  Weapons: attack damage. Value: diamond value x (score/diamond)^2 above diamond, log-linear between iron and diamond,
+  iron x (score/iron)^8 below; x durability factor 0.7-1.5. Used to price loot-only gear and to back-solve guessed
+  materials, and written to the CSV as `statvalue` for the gear check. A yardstick must be at most 10% guessed
+  (`guessShare`), else one guessed scrap in a handle (wool, a saw) disqualifies every Spartan weapon.
+- CSV columns after `recipe`: `craftcost` + `craftrecipe` (cheapest recipe at final values), `uses`, `statvalue`,
+  `hidden` (unobtainable / jei), `basis` (weakest evidence anywhere below: guess < gear < drop < known),
+  `guessshare` / `estimateshare` (0-1, how much of the value comes from guesses / from any estimate, weighed by value),
+  then `value/ItemSignals`: kind, armor, toughness, damage, speed, durability, harvest, food, saturation, burn, rarity, stack.
+- `value/JeiHidden`: reads `config/jei/itemBlacklist.cfg` (`hideJeiHidden`, default on). Dregora hides 830 items there:
+  shields for absent mods, Varied Commodities armor, disabled features.
+- `value/DropAnalyzer`: the harness-only analysis above. `tools/drops.py` turns its output into
+  `pack/rlcraft_dregora_drops.txt` (loaded by `PackValues.loadEstimates()` as source DROP).
 - Potion keys: potions keep their type in NBT, so `key(ItemStack)` returns a synthetic key (bit 40 set, form in bits
   24-27: 0 potion, 1 splash, 2 lingering, 3 tipped arrow, potion type id below). `idOf(key)` / `configId(stack)` give
   `potion:potioncore:flight`, `splash:...`, `lingering:...`, `arrow:...`. CSV rows use those ids.
@@ -82,6 +108,7 @@ session that made it, on Malek's PC only (temp folder, may be gone): `C:\Users\M
   unless `builtInPackList=false`), then `config/upgraderwheel-pack.txt` (player's lines, win). New file = 
   `pack/user_template.txt` (first line is the format marker). Old 1.1.0 full copies are migrated once: lines matching
   `pack/legacy_defaults.txt` are dropped, own lines kept, old file saved as `.bak`. Tested on the harness.
+  `pack/rlcraft_dregora_drops.txt` (generated, never edit by hand) holds mob drop estimates: weaker than pins.
 - `value/ItemPattern`: `mod:item`, `mod:item:meta`, `mod:*`, `ore:name`, globs `mod:prefix_*`, `*:*text*`, and
   `potion:|splash:|lingering:|arrow:` + `ns:type` (globs allowed, `potion:type` means minecraft).
 - `value/BaseValues`: iron ingot/ore 1024, gold ingot/ore 2048, diamond 8192, emerald 16384; horse armor and chainmail
@@ -101,53 +128,79 @@ session that made it, on Malek's PC only (temp folder, may be gone): `C:\Users\M
 - GitHub repo should be PUBLIC (MIT). Friends play the same pack single-player, together on a server/LAN, and some in
   other 1.12.2 packs, some on the official launcher or CurseForge rather than TLauncher.
 
-## Value-checking workflow (token-cheap; do NOT read the CSV row by row)
+## How values are balanced (token-cheap; NEVER read the CSV row by row)
 
-Crafted rows follow from their ingredients, so only guessed leaves (`source` = fallback/gear) need review.
-- `tools/triage.py <values.csv> [top_n]`: counts guessed leaves per mod, ranks them by how many recipes depend on them,
-  and lists crafted items priced far below their ingredients (noisy: seeds, cake, multi-output recipes are false alarms).
-- `tools/gen_rules.py <values.csv>`: name/mod regex rules (metal tables, fuels, drops, `nowin` hides) that print pack-list
-  lines for guessed items only. Its output is the "Generated" block at the end of `rlcraft_dregora.txt`; to regenerate,
-  cut the file after the "Generated" header line, rerun against a fresh CSV, append, then re-add "Manual extras".
-  Items are written with an explicit `:meta` (a bare id would cover every variant).
-- Loop: `test.sh` on the harness -> triage -> add rules/pins -> `test.sh` again. Pins for progression items (XP, hearts,
-  Bountiful Baubles, Artifacts, talismans) are the "Progression items" section of the pack list.
+Reading items one by one failed (1.4M tokens for under a quarter). Instead every value is checked against independent
+evidence by tools, and only disagreements are read; fixes are rules or a few pins, never item-by-item edits.
 
-## State of the work (end of session 2026-10-27)
+Principles:
+- The wheel is fair only if value = what it costs to get one more. Gambling converts any value into any item at ~95%,
+  so an item worth more than its cost is a printer (craft it, bet it, win diamonds) and one worth less than its power
+  lets players skip progression. Gates (needing a brewing stand) do not count, marginal cost does.
+- Evidence, strongest first: hand pins (Malek's decisions; dragon parts) > recipes from known values > gear stats
+  (armor/damage vs vanilla iron and diamond) > mob drop analysis > name rules (`gen_rules.py`) > rarity guess.
+  Pins win in the engine; drop estimates can be lowered by recipes; guesses never lower anything known.
+- Mob drop analysis is wrong for mobs whose stats come from spawn data: Ice and Fire creatures are measured as babies
+  (a sea serpent rates like a cow), so Ice and Fire stays hand-pinned. Lycanites levels, Champions also not seen.
 
-Committed locally: `e0332d6` baseline, `04e3a32` engine, `ec17844` progression pins + bulk rules + tools. Guessed leaves
-went 2394 -> 2041 of 6842 rows. Verified on the harness: pins land (Copper Ingot 512, Heart Dust 512, XP bottle 512,
-Magic Mirror 32768, Spectral Silt 2048).
-**Installed in the game**: `upgraderwheel-1.2.0.jar` is in the TLauncher `RLCraftDragoraEZ\mods` (copied by hand).
-Not yet tested in game by Malek (potion results on the wheel, tooltips, new prices).
-`update.bat` failed when launched from Claude's shell ("gradlew.bat is not recognized" after it had already deleted the old
-jar); probably fine double-clicked, but consider `call "%~dp0gradlew.bat"` and building before deleting the old jar.
-Run Gradle from Bash with `JAVA_HOME` set, and quote paths containing "Malek Baghdadi" (use "$HOME/...").
+The loop (each run is ~2 minutes on the harness):
+1. `ANALYZE=1 sh tools/test.sh` when mobs/loot may have changed (new pack version), else plain `sh tools/test.sh`.
+2. `python tools/drops.py <values.csv> <drops.csv> > src/main/resources/assets/upgraderwheel/pack/rlcraft_dregora_drops.txt`
+   when pins or drops changed, then run again (two passes: freed items must show up as guesses first).
+   Model: kill value = C x effective health/20 (EH = health x (1+armor/20) x (1+attack/20)), C fitted on vanilla monsters
+   (~460), bosses x~17 fitted on the Wither, square root above EH 300; known drops take their share, unpriced drops split
+   the rest (at least half the kill value) by drop rate; cheapest mob wins; global drops (on >25% of mobs) and rare
+   cross-mod drops skipped. The linear curve was fitted so gear crafted from drops lands near its stat value (x1.3-1.8;
+   a square curve gave x16). Refit with a grid search if the pack changes (see the KNOBS comment).
+3. `python tools/balance.py <values.csv> [--diff <older.csv>] [--top N]` (~70 lines): ladder (prizes per tier x kind),
+   printers (value > 2x cheapest recipe; shows the recipe), gear at iron strength or better vs its stats, jackpots
+   (valuable prizes resting on estimates), guesses by dependents, materials vs what their gear implies.
+4. Fix by rule: pin the raw material the evidence points at (an ore, a drop), not the crafted item; add `nowin` for a
+   family; change a tool knob. Then run again and `--diff` against the previous CSV.
+- `tools/gen_rules.py <values.csv> [drops.csv]`: name/mod regex rules (metal tables, foods, `nowin` hides) for guessed
+  items only; its output is the "Generated" block of `rlcraft_dregora.txt` (to regenerate, cut the file after the
+  "Generated" header, rerun against a fresh CSV, append, re-add "Manual extras"). It never pins mob drops (pass the
+  drops CSV) or ores; items are written with an explicit `:meta`.
 
-Also committed (`cc3ac2a`, `3f62ea2`):
-- `gradle.properties`: `mod_version = 1.2.0`, `mod_url` and `mod_update_json` pointing at github.com/MalekBaghdadi/upgrader-wheel.
-- `update.json` (Forge update checker file, served from the repo's main branch).
-- `install/install.ps1`: Windows installer. Finds instances (CurseForge, official/TLauncher incl. per-version folders,
-  Prism/PolyMC/MultiMC, ATLauncher, GDLauncher, Modrinth App, Technic, FTB), sorts Dregora first, downloads the latest
-  release jar from the GitHub API, removes old `upgraderwheel-*.jar`, copies the new one. Options `-ModsFolder`, `-Jar`,
-  `-ListOnly` (or env `UPGRADERWHEEL_LISTONLY=1`), env `UPGRADERWHEEL_NOPAUSE=1`. Tested: detection on this PC (found 5
-  instances), `irm | iex` mode, and replacing an old jar in a fake folder. Download path untested (no release yet).
+## State of the work (end of session 2026-10-31, cloud session)
+
+This session built the evidence tooling above and ran it on a Linux harness made with `make_harness.py`. Against the
+baseline (end of 2026-10-27): 989 items no longer offered (832 JEI-hidden incl. the 2,000,000 ghost shields, 157
+unobtainable Spartan/Better Survival gear); 150-160 mob drops priced from the analysis (SRParasites, Lycanites, Lava
+Cow, Defiled Lands...); strong gear far below its stats 105 -> 7 and far above 190 -> 0; materials 3x off their gear
+17 -> 0. Pack list: 17 name-rule pins on mob drops and 106 NuclearCraft fuel pins removed; Defiled Lands ores (umbrium
+1i, scarlite 1g, hephaestite 256), cincinnasite ore 256, Weta Jaw 4i, Ice and Fire mid-tier materials raised to what
+their gear says (myrmex chitin 2i, troll leather 2i/4i, death worm chitin 2560, sea serpent scales 6i). The dragon pins
+already agreed with their gear (x0.8-1.4). Not yet in game; the jar is not installed.
+
+**Open decision for Malek: potions are value printers.** Swiftness brews for 51 and is worth 8192 (the potionValue
+floor); Healing brews for 33 from a Leech; Flight is pinned 18d and brews for 77 (3 Thick + 1 Familiar Fauna Pixie
+Dust, a passive mob's drop worth 84); Recall pinned 4d brews for 396 (Warp Scroll 861). 672 of 4890 prizes are potions,
+661 of them at 1 diamond or more. Options: keep; price potions by brewing cost (drop the floor to e.g. 1 iron or 0);
+or keep the pins and raise the gating ingredients so brewing costs what the potion is worth.
 
 Still to do, in rough order:
-1. **Value scan, remaining**: done for the top-impact leaves and progression items. Left: Spartan Shields for absent mods
-   (EnderIO/RFTools/Redstone Arsenal) guessed 2000000 (should be nowin), Lycanites/fish/Varied Commodities gear rows,
-   Pixie Dust and Leech at 32, potion types with no brewing recipe all at the 8192 floor, optional RLCraft-wiki cross-check
-   of boss/mob drops. The rest of the ~2000 guesses are mostly zero-dependent junk (flowers, leaves): leave them.
-2. `install/Install-UpgraderWheel.bat` (double-click wrapper: runs `install.ps1` beside it, else downloads it from
+1. The potion decision above, then rerun balance.py.
+2. Enchantments: `enchantmentLevelValue` is a flat 256/level on bets only (books and enchanted gear are never prizes).
+   A per-enchantment value (rarity, max level, treasure, curses at 0) must stay below what an enchanting-table roll
+   costs (3 levels at 30 = ~300 XP points = ~22k in XP bottles at 512 each, plus 3 lapis = 2.6k) or it becomes a printer.
+3. Remaining report lines: Lava Cow Skeleton King boss drops hit the 4-nether-star cap (Famine, War, Halo Necklace,
+   Dream Catcher: 60-64d); a few Lava Cow daggers below their stats; ~1000 guessed prizes are junk/stone tier (32).
+4. `install/Install-UpgraderWheel.bat` (double-click wrapper: runs `install.ps1` beside it, else downloads it from
    raw.githubusercontent) and `install/install.sh` for macOS/Linux (curl one-liner; find `~/Library/Application Support/
    minecraft`, `~/.minecraft`, Prism/CurseForge folders).
-3. Rewrite README.md for friends: quick install (one-liner, .bat, manual per launcher: CurseForge, official launcher with
+5. Rewrite README.md for friends: quick install (one-liner, .bat, manual per launcher: CurseForge, official launcher with
    Forge 1.12.2, TLauncher, Prism/MultiMC, ATLauncher...), server/LAN (mod on server and every client; values come from
    the server's config), other packs, uninstall, troubleshooting; then playing, values/tuning (new scale, potion lines,
-   own pack file), building. Update CHANGELOG.md with 1.2.0.
-4. The repo `MalekBaghdadi/upgrader-wheel` exists, `main` is pushed, and it is PUBLIC (made public 2026-10-31, before the
-   README rewrite). `gh auth status` on Malek's PC lists the `workflow` scope, earlier notes said it did not. Create
-   release `v1.2.0` with the jar
-   (non-dev), `Install-UpgraderWheel.bat` and `install.ps1` attached. Then test the installer's download path.
-5. Malek tests in game: potion results on the wheel (icon, name, search `@potioncore`, winning one gives the right
+   own pack file), building.
+6. Release `v1.2.0` on the public repo with the jar (non-dev), `Install-UpgraderWheel.bat` and `install.ps1` attached,
+   then test the installer's download path. (Earlier state: 1.2.0 jar copied by hand into TLauncher `RLCraftDragoraEZ\mods`
+   on 2026-10-27, before this session's changes; `update.bat` failed from Claude's shell, consider
+   `call "%~dp0gradlew.bat"` and building before deleting the old jar.)
+7. Malek tests in game: potion results on the wheel (icon, name, search `@potioncore`, winning one gives the right
    potion), tooltips, `/upgrader value` on a potion, multiplayer if possible.
+
+Also in git from before: `gradle.properties` (`mod_version = 1.2.0`, `mod_url`, `mod_update_json`), `update.json`
+(Forge update checker), `install/install.ps1` (Windows installer: finds CurseForge, official/TLauncher, Prism/PolyMC/
+MultiMC, ATLauncher, GDLauncher, Modrinth App, Technic, FTB instances; Dregora first; downloads the latest release jar;
+options `-ModsFolder`, `-Jar`, `-ListOnly`/`UPGRADERWHEEL_LISTONLY=1`, `UPGRADERWHEEL_NOPAUSE=1`; download path untested).

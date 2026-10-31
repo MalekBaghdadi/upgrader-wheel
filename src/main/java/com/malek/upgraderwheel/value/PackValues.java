@@ -28,6 +28,8 @@ public final class PackValues {
 
     public static final String FILE_NAME = "upgraderwheel-pack.txt";
     private static final String BUILT_IN = "/assets/upgraderwheel/pack/rlcraft_dregora.txt";
+    /** Generated mob drop estimates (tools/drops.py): weaker than pins, recipes can still lower them. */
+    private static final String BUILT_IN_DROPS = "/assets/upgraderwheel/pack/rlcraft_dregora_drops.txt";
     private static final String TEMPLATE = "/assets/upgraderwheel/pack/user_template.txt";
     /** The 1.1.0 default, which used to be copied into the config folder whole. */
     private static final String LEGACY = "/assets/upgraderwheel/pack/legacy_defaults.txt";
@@ -77,6 +79,14 @@ public final class PackValues {
             }
         }
         return entries;
+    }
+
+    /** Built-in estimates for things nothing else prices (mob drops); empty when the built-in list is turned off. */
+    public static List<Entry> loadEstimates() {
+        if (!ModConfig.builtInPackList) {
+            return Collections.emptyList();
+        }
+        return parse(readResource(BUILT_IN_DROPS), "built-in drop estimates");
     }
 
     private static List<Entry> parse(List<String> lines, String where) {

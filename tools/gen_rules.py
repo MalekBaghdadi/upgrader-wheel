@@ -1,6 +1,8 @@
 """Turns name/mod rules into pack-list lines for guessed (fallback/gear) items only.
-Usage: python tools/gen_rules.py <values.csv>   -> prints lines to paste under '# ---- generated' in the pack list.
-First matching rule wins; 'nowin' hides an item from the result list."""
+Usage: python tools/gen_rules.py <values.csv> [drops.csv]   -> prints lines to paste under '# ---- generated' in the pack list.
+First matching rule wins; 'nowin' hides an item from the result list.
+Name rules are the weakest evidence there is, so they never pin a mob drop (pass the harness drops.csv: tools/drops.py prices
+those from the mob) and never pin anything a recipe can make (NuclearCraft fuels are crafted from isotopes)."""
 import csv, re, sys
 I, G, D = 1024, 2048, 8192
 M = {  # metal / material name -> ingot value
@@ -20,8 +22,6 @@ for k, v in M.items():
     r(r'nuclearcraft|variedcommodities', rf'^{k} nugget$', v // 9)
     r(r'nuclearcraft|variedcommodities', rf'^{k} (ingot|gem|dust|plate|ore)$', v)
     r(r'nuclearcraft', rf'^(ingot|dust|gem|plate) of {k}$', v)
-r(r'nuclearcraft', r'^depleted', 4096)
-r(r'nuclearcraft', r'^(fuel|\[.*\]|.*fuel)', 8192)
 r(r'nuclearcraft', r'bioplastic', 512)
 r(r'nuclearcraft', r'empty cooler|cooler$', 2048)
 r(r'nuclearcraft', r'cocoa|chocolate|flour|gelatin|graham|dominos|marshmallow|dry earth', 128)
@@ -31,7 +31,7 @@ r(r'srparasites', r'itemmobspawner|spawner', 'nowin')
 r(r'srparasites', r'infested|gore|flesh|bone|remain|rubble|stain|bush|trunk|bloody', 256)
 r(r'srparasites', r'drop$|_drop', 2048)
 r(r'defiledlands', r'heart|scale|eye|wyrm|scuttler|tooth|claw', 2048)
-r(r'defiledlands', r'stone|ore|dirt|grass|sand|log|leaves|sapling|plant', 32)
+r(r'defiledlands', r'stone|dirt|grass|sand|log|leaves|sapling|plant', 32)   # ores are priced by hand from their gear
 r(r'mod_lavacow', r'hide|jaw|feather|molten|fang|horn|tooth|claw|scale', 1024)
 r(r'quark', r'crystal', 512)
 r(r'simpledifficulty', r'ice chunk|magma chunk', 256)
@@ -49,6 +49,9 @@ r(r'grapplemod', r'upgrade', 4096)
 r(r'grapplemod', r'hook$|^grappling hook$|staff|forcefield', 16384)
 r(r'.*', r'^$', 'nowin')
 rows = [x for x in csv.DictReader(open(sys.argv[1], encoding='utf-8')) if x['source'] in ('fallback', 'gear')]
+if len(sys.argv) > 2:
+    dropped = {(d['id'], d['meta']) for d in csv.DictReader(open(sys.argv[2], encoding='utf-8')) if d['id']}
+    rows = [x for x in rows if (x['id'], x['meta']) not in dropped]
 seen = set()
 for x in rows:
     mod = x['id'].split(':')[0]
@@ -58,5 +61,5 @@ for x in rows:
                 key = f"{x['id']}:{x['meta']}" if x['meta'] != '' else x['id']
                 if key in seen: break
                 seen.add(key)
-                print(f"{key} = {v}   # {x['name']}")
+                print(f"{key} = {v}   # {re.sub('§.', '', x['name'])}")
                 break

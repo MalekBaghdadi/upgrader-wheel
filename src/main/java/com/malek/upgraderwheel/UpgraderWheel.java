@@ -4,7 +4,9 @@ import com.malek.upgraderwheel.command.CommandUpgrader;
 import com.malek.upgraderwheel.inventory.GuiHandler;
 import com.malek.upgraderwheel.logic.UpgradeService;
 import com.malek.upgraderwheel.network.Network;
+import com.malek.upgraderwheel.value.DropAnalyzer;
 import com.malek.upgraderwheel.value.ValueRegistry;
+import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.SidedProxy;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
@@ -53,6 +55,14 @@ public class UpgraderWheel {
     public void serverStarted(FMLServerStartedEvent event) {
         // Every recipe (CraftTweaker and friends included) is in place by now
         ValueRegistry.rebuild();
+        if (DropAnalyzer.requested()) {
+            // Test servers only (see DropAnalyzer)
+            try {
+                DropAnalyzer.run(FMLCommonHandler.instance().getMinecraftServerInstance());
+            } catch (Throwable t) {
+                LOGGER.error("Drop analysis failed", t);
+            }
+        }
     }
 
     @Mod.EventHandler

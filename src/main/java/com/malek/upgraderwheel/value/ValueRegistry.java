@@ -24,8 +24,10 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemArmor;
 import net.minecraft.item.ItemAxe;
 import net.minecraft.item.ItemPickaxe;
+import net.minecraft.item.ItemRecord;
 import net.minecraft.item.ItemSpade;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.ItemTool;
 import net.minecraft.item.crafting.FurnaceRecipes;
 import net.minecraft.item.crafting.IRecipe;
 import net.minecraft.item.crafting.Ingredient;
@@ -74,6 +76,7 @@ public final class ValueRegistry {
         BREWING("brewing recipe"),
         GEAR("estimate from the gear it makes or its own stats"),
         SMELTS_INTO("worth what it smelts into"),
+        DROP("mob drop estimate (how hard the mob is and how often it drops it)"),
         FALLBACK("rarity guess (no recipe)");
 
         public final String description;
@@ -181,12 +184,25 @@ public final class ValueRegistry {
     private final List<ItemPattern> blacklist = new ArrayList<>();
     private final List<ItemPattern> targetBlacklist = new ArrayList<>();
     private final List<ItemPattern> betBlacklist = new ArrayList<>();
+    /** Items the pack hides from JEI: never offered unless the pack list or an override prices them. */
+    private final List<ItemPattern> jeiHidden = new ArrayList<>();
     /** Every potion key seen (potion, splash, lingering, tipped arrow of one potion type). */
     private final LongSet potionKeys = new LongOpenHashSet();
     /** Potions some brewing recipe makes: these are offered as results. */
     private final LongSet brewedKeys = new LongOpenHashSet();
     /** For values worked out from what an item smelts into: that output, so loops back through it are refused. */
     private final Long2LongOpenHashMap smeltTarget = new Long2LongOpenHashMap();
+    /** Outputs of recipes nobody can craft (an ingredient that no item provides, like a metal the pack lacks). */
+    private final LongSet deadRecipeOutputs = new LongOpenHashSet();
+    /** Items with no way in: only dead recipes, or recipes that need such items, and no value of their own. */
+    private final LongSet unobtainable = new LongOpenHashSet();
+    /** What each item's cheapest recipe costs at the final values (for spotting items worth more than they cost). */
+    private final Long2DoubleOpenHashMap craftCost = new Long2DoubleOpenHashMap();
+    /** The recipe behind craftCost and the ingredients it would use. */
+    private final Long2ObjectOpenHashMap<Rec> craftRec = new Long2ObjectOpenHashMap<>();
+    private final Long2ObjectOpenHashMap<long[]> craftChosen = new Long2ObjectOpenHashMap<>();
+    /** What gear is worth from its stats alone, compared with vanilla iron and diamond gear. */
+    private final Long2DoubleOpenHashMap statValues = new Long2DoubleOpenHashMap();
 
     private int skippedRecipes;
     private int smeltingRecipes;
@@ -202,6 +218,8 @@ public final class ValueRegistry {
         this.via.defaultReturnValue(-1);
         this.uses.defaultReturnValue(0);
         this.smeltTarget.defaultReturnValue(-1);
+        this.craftCost.defaultReturnValue(-1);
+        this.statValues.defaultReturnValue(-1);
     }
 
     // ------------------------------------------------------------------ access
@@ -333,7 +351,7 @@ public final class ValueRegistry {
         return Item.getItemById((int) (key >>> 16));
     }
 
-    private static int metaOf(long key) {
+    static int metaOf(long key) {
         return isPotionKey(key) ? 0 : (int) (key & 0xFFFF);
     }
 
@@ -437,8 +455,13 @@ public final class ValueRegistry {
         if (rec.chosen == null) {
             return null;
         }
+        return describe(rec, rec.chosen);
+    }
+
+    /** "2 Dragon Bone + 1 Witherbone (makes 2)" for a recipe and the ingredients it uses. */
+    private static String describe(Rec rec, long[] chosen) {
         Map<Long, Integer> counts = new LinkedHashMap<>();
-        for (long k : rec.chosen) {
+        for (long k : chosen) {
             counts.merge(k, 1, Integer::sum);
         }
         StringBuilder text = new StringBuilder();
@@ -487,26 +510,54 @@ public final class ValueRegistry {
             if (item == null || item.getRegistryName() == null || (isPotionKey(key) && potionTypeOf(key) == null)) {
                 continue;
             }
-            rows.add(new Object[]{idOf(key), metaOf(key), e.getDoubleValue(), sources.get(key), catalogByKey.containsKey(key), nameOf(key), describeRecipe(key)});
+            rows.add(new Object[]{idOf(key), metaOf(key), e.getDoubleValue(), sources.get(key), catalogByKey.containsKey(key), nameOf(key), describeRecipe(key), key});
         }
         rows.sort(Comparator.comparing((Object[] r) -> (String) r[0]).thenComparing(r -> (Integer) r[1]));
         return rows;
     }
 
-    /** Writes every value to config/upgraderwheel-values.csv. Returns the file. */
+    /**
+     * Writes every value to config/upgraderwheel-values.csv. Returns the file. After the value columns come checks
+     * (craftcost: cheapest recipe at final values; uses: recipes that take it; statvalue: what its stats are worth;
+     * unobtainable) and the item's own stats, which tools/balance.py reads.
+     */
     public File writeCsv() throws IOException {
         File file = new File(net.minecraftforge.fml.common.Loader.instance().getConfigDir(), "upgraderwheel-values.csv");
         try (PrintWriter out = new PrintWriter(Files.newBufferedWriter(file.toPath(), StandardCharsets.UTF_8))) {
-            out.println("id,meta,name,value,source,listed,recipe");
+            out.println("id,meta,name,value,source,listed,recipe,craftcost,uses,statvalue,hidden,basis,guessshare,estimateshare,craftrecipe,"
+                    + ItemSignals.CSV_HEADER);
             for (Object[] row : dumpRows()) {
                 Source source = (Source) row[3];
+                long key = (Long) row[7];
+                double cost = craftCost.get(key);
+                double stat = statValues.get(key);
+                String signals;
+                try {
+                    signals = ItemSignals.of(stackOf(key)).csv();
+                } catch (Throwable t) {
+                    signals = "error,,,,,,,,,,,";
+                }
                 out.println(row[0] + "," + row[1] + "," + csv((String) row[5]) + ","
                         + ModConfig.formatNumber(roundValue((Double) row[2])) + ","
                         + (source == null ? "" : source.name().toLowerCase(Locale.ROOT)) + "," + row[4] + ","
-                        + csv(row[6] == null ? "" : (String) row[6]));
+                        + csv(row[6] == null ? "" : (String) row[6]) + ","
+                        + (cost < 0 ? "" : ModConfig.formatNumber(roundValue(cost))) + "," + uses.get(key) + ","
+                        + (stat < 0 ? "" : ModConfig.formatNumber(roundValue(stat))) + "," + hiddenText(key) + ","
+                        + basis(key) + "," + String.format(Locale.ROOT, "%.2f", guessShare(key, guessShareMemo, 0)) + ","
+                        + String.format(Locale.ROOT, "%.2f", shareFrom(key, ESTIMATE_LEAVES, estimateShareMemo, 0)) + ","
+                        + csv(craftRec.containsKey(key) ? describe(craftRec.get(key), craftChosen.get(key)) : "") + "," + signals);
             }
         }
         return file;
+    }
+
+    private String hiddenText(long key) {
+        try {
+            String reason = hiddenReason(key, stackOf(key));
+            return reason == null ? "" : reason;
+        } catch (Throwable t) {
+            return "";
+        }
     }
 
     private void writeCsvQuietly() {
@@ -551,7 +602,9 @@ public final class ValueRegistry {
         seedBaseValues();
         seedPotionBaseValues();
         seedOreDictionary();
+        seedDropEstimates();
         raiseSeedsToSmeltYield();
+        raiseDropsToYield();
         buildWildcardExpansion();
         countUses();
 
@@ -571,6 +624,8 @@ public final class ValueRegistry {
         }
         estimateFromGear(targetStacks);
         applyMultipliers();
+        findUnobtainable();
+        computeCraftCosts();
         if (targetStacks.isEmpty() || creativeFailures > creativeItems) {
             // Creative tab lookups failed across the board (client-only code on a dedicated server):
             // offer everything that a recipe makes or that has a base value instead
@@ -595,6 +650,9 @@ public final class ValueRegistry {
         readList(ModConfig.blacklist, blacklist, "blacklist");
         readList(ModConfig.targetBlacklist, targetBlacklist, "targetBlacklist");
         readList(ModConfig.betBlacklist, betBlacklist, "betBlacklist");
+        if (ModConfig.hideJeiHidden) {
+            jeiHidden.addAll(JeiHidden.load());
+        }
     }
 
     private static void readList(String[] lines, List<ItemPattern> into, String name) {
@@ -745,6 +803,10 @@ public final class ValueRegistry {
                     containers.add(Arrays.copyOf(cont, k));
                 }
                 if (!craftable || alternatives.isEmpty()) {
+                    if (!craftable) {
+                        note(out);
+                        deadRecipeOutputs.add(key(out));
+                    }
                     continue;
                 }
                 note(out);
@@ -1086,7 +1148,8 @@ public final class ValueRegistry {
                 long in = rec.alternatives[0][0];
                 Source inSource = sources.get(in);
                 Source outSource = sources.get(rec.out);
-                if (metaOf(in) == WILDCARD || fixed.contains(in) || (inSource != Source.BASE && inSource != Source.ORE_DICT && inSource != Source.SMELTS_INTO)) {
+                if (metaOf(in) == WILDCARD || fixed.contains(in) || (inSource != Source.BASE && inSource != Source.ORE_DICT
+                        && inSource != Source.SMELTS_INTO && inSource != Source.DROP)) {
                     continue;
                 }
                 if (outSource != Source.BASE && outSource != Source.ORE_DICT && outSource != Source.PACK && outSource != Source.OVERRIDE) {
@@ -1119,6 +1182,54 @@ public final class ValueRegistry {
                 if (!values.containsKey(key)) {
                     seed(key, entry.getValue(), Source.ORE_DICT);
                 }
+            }
+        }
+    }
+
+    /** Mob drop estimates, for items with no value yet: never pinned, so a cheaper recipe still lowers them. */
+    private void seedDropEstimates() {
+        for (PackValues.Entry entry : PackValues.loadEstimates()) {
+            if (entry.noWin()) {
+                continue;
+            }
+            for (long key : keysFor(entry.pattern)) {
+                if (!values.containsKey(key) && !fixed.contains(key)) {
+                    values.put(key, Math.max(MIN_VALUE, entry.value));
+                    sources.put(key, Source.DROP);
+                }
+            }
+        }
+    }
+
+    /**
+     * A drop estimate is worth at least what it turns straight into: 1 Propolis makes 4 clay, so it is not worth less
+     * than 4 clay (otherwise it would cheapen clay and everything made from it). Only recipes with one kind of ingredient
+     * and an output with a value of its own count.
+     */
+    private void raiseDropsToYield() {
+        for (Rec rec : recipes) {
+            if (rec.brewing || rec.outCount <= 0) {
+                continue;
+            }
+            long in = -1;
+            boolean single = true;
+            for (long[] alternatives : rec.alternatives) {
+                if (alternatives.length != 1 || (in >= 0 && alternatives[0] != in)) {
+                    single = false;
+                    break;
+                }
+                in = alternatives[0];
+            }
+            if (!single || in < 0 || sources.get(in) != Source.DROP) {
+                continue;
+            }
+            Source outSource = sources.get(rec.out);
+            if (outSource != Source.BASE && outSource != Source.ORE_DICT && outSource != Source.PACK && outSource != Source.OVERRIDE) {
+                continue;
+            }
+            double worth = values.get(rec.out) * rec.outCount / rec.alternatives.length;
+            if (worth > values.get(in)) {
+                values.put(in, worth);
             }
         }
     }
@@ -1339,8 +1450,10 @@ public final class ValueRegistry {
                     }
                     boolean recipeGuessed = anyGuessed(chosen);
                     if (currentGuessed && !recipeGuessed) {
-                        // A real recipe beats a value that rests on guesses, even when it is higher
-                        update = Math.abs(unit - current) > 1.0E-9 * Math.max(1, current);
+                        // A real recipe beats a value that rests on guesses, even when it is higher, and also on a tie:
+                        // planks from logs and planks from logs plus a (guessed, handed-back) saw both cost 8, and
+                        // whichever came first used to decide whether every wooden thing counted as guessed
+                        update = Math.abs(unit - current) > 1.0E-9 * Math.max(1, current) || via.get(rec.out) != r;
                     } else if (!currentGuessed && recipeGuessed) {
                         // Guesses never cheapen a known value: an emerald stays an emerald even though some
                         // mod's emerald ore, which has no value of its own, smelts into one
@@ -1373,7 +1486,7 @@ public final class ValueRegistry {
     private boolean isSeed(long key) {
         Source source = sources.get(key);
         return source == Source.BASE || source == Source.ORE_DICT || source == Source.PACK || source == Source.OVERRIDE
-                || source == Source.GEAR || source == Source.SMELTS_INTO;
+                || source == Source.GEAR || source == Source.SMELTS_INTO || source == Source.DROP;
     }
 
     /**
@@ -1455,6 +1568,145 @@ public final class ValueRegistry {
         return false;
     }
 
+    // ------------------------------------------------------------------ checks
+
+    /**
+     * Items nobody can get: only made by recipes that need an ingredient no item provides (Spartan weapons for metals
+     * the pack does not have, shields for mods that are not installed), or only by recipes that need such items.
+     * Anything with a value of its own (base, ore dictionary, pack list, override) counts as obtainable.
+     * These are never offered as results.
+     */
+    private void findUnobtainable() {
+        if (deadRecipeOutputs.isEmpty()) {
+            return;
+        }
+        Long2ObjectOpenHashMap<List<Rec>> byOutput = new Long2ObjectOpenHashMap<>();
+        for (Rec rec : recipes) {
+            List<Rec> list = byOutput.get(rec.out);
+            if (list == null) {
+                list = new ArrayList<>(2);
+                byOutput.put(rec.out, list);
+            }
+            list.add(rec);
+        }
+        for (long key : deadRecipeOutputs.toLongArray()) {
+            if (!byOutput.containsKey(key) && isGuessedSource(key)) {
+                unobtainable.add(key);
+            }
+        }
+        for (int pass = 0; pass < 16 && !unobtainable.isEmpty(); pass++) {
+            boolean changed = false;
+            for (Long2ObjectMap.Entry<List<Rec>> entry : byOutput.long2ObjectEntrySet()) {
+                long out = entry.getLongKey();
+                if (unobtainable.contains(out) || !isGuessedSource(out)) {
+                    continue;
+                }
+                boolean allBlocked = true;
+                for (Rec rec : entry.getValue()) {
+                    if (!needsUnobtainable(rec)) {
+                        allBlocked = false;
+                        break;
+                    }
+                }
+                if (allBlocked) {
+                    unobtainable.add(out);
+                    changed = true;
+                }
+            }
+            if (!changed) {
+                break;
+            }
+        }
+    }
+
+    private boolean isGuessedSource(long key) {
+        Source source = sources.get(key);
+        return source == null || source == Source.FALLBACK || source == Source.GEAR || source == Source.RECIPE
+                || source == Source.SMELTING || source == Source.BREWING;
+    }
+
+    /** True when some ingredient slot of the recipe can only be filled with unobtainable items. */
+    private boolean needsUnobtainable(Rec rec) {
+        for (long[] alternatives : rec.alternatives) {
+            boolean any = false;
+            for (long key : alternatives) {
+                long[] expanded = metaOf(key) == WILDCARD ? wildcardExpansion.get(key) : null;
+                if (expanded == null) {
+                    if (!unobtainable.contains(metaOf(key) == WILDCARD ? key & ~0xFFFFL : key)) {
+                        any = true;
+                    }
+                } else {
+                    for (long k : expanded) {
+                        if (!unobtainable.contains(k)) {
+                            any = true;
+                            break;
+                        }
+                    }
+                }
+                if (any) {
+                    break;
+                }
+            }
+            if (!any) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * What every item's cheapest recipe costs at the final values. For items priced by recipes this is their value;
+     * for pinned or guessed items it shows whether crafting one and betting it would make value out of nothing.
+     */
+    private void computeCraftCosts() {
+        for (Rec rec : recipes) {
+            if (rec.outCount <= 0) {
+                continue;
+            }
+            double total = 0;
+            boolean known = true;
+            long[] chosen = new long[rec.alternatives.length];
+            for (int i = 0; i < rec.alternatives.length && known; i++) {
+                double best = -1;
+                for (int j = 0; j < rec.alternatives[i].length; j++) {
+                    long concrete = cheapestKey(rec.alternatives[i][j]);
+                    if (concrete < 0 || unobtainable.contains(concrete)) {
+                        continue;
+                    }
+                    double v = values.get(concrete);
+                    if (rec.containers[i][j] >= 0) {
+                        double back = lookup(rec.containers[i][j]);
+                        if (back > 0) {
+                            v = Math.max(0, v - back);
+                        }
+                    }
+                    if (best < 0 || v < best) {
+                        best = v;
+                        chosen[i] = concrete;
+                    }
+                }
+                if (best < 0) {
+                    known = false;
+                } else {
+                    total += best;
+                }
+            }
+            if (!known) {
+                continue;
+            }
+            double unit = total / rec.outCount;
+            if (rec.brewing) {
+                unit *= ModConfig.brewingStepMultiplier;
+            }
+            double current = craftCost.get(rec.out);
+            if (current < 0 || unit < current) {
+                craftCost.put(rec.out, unit);
+                craftRec.put(rec.out, rec);
+                craftChosen.put(rec.out, chosen);
+            }
+        }
+    }
+
     // ------------------------------------------------------------------ gear-based estimates
 
     /**
@@ -1475,15 +1727,32 @@ public final class ValueRegistry {
         if (gear.isEmpty()) {
             return;
         }
-        Map<Class<?>, ItemStack> diamondByClass = new IdentityHashMap<>();
         for (int round = 0; round < 4; round++) {
             LongSet guessed = guessedKeys();
             if (round == 0) {
+                Long2DoubleOpenHashMap shares = new Long2DoubleOpenHashMap();
                 for (ItemStack stack : gear) {
                     ResourceLocation id = stack.getItem().getRegistryName();
-                    if (id != null && id.getPath().contains("diamond") && !(stack.getItem() instanceof ItemArmor)
-                            && !guessed.contains(key(stack))) {
-                        diamondByClass.putIfAbsent(stack.getItem().getClass(), stack);
+                    if (id == null || stack.getItem() instanceof ItemArmor || guessShare(key(stack), shares, 0) > 0.1) {
+                        continue;
+                    }
+                    List<String> words = Arrays.asList(id.getPath().split("[^a-z]+"));
+                    for (String material : new String[]{"diamond", "iron"}) {
+                        if (!words.contains(material)) {
+                            continue;
+                        }
+                        Map<Class<?>, ItemStack> byClass = material.equals("diamond") ? diamondByClass : ironByClass;
+                        Map<String, List<ItemStack>> byShape = material.equals("diamond") ? diamondByShape : ironByShape;
+                        Class<?> type = stack.getItem().getClass();
+                        // A class shared by several kinds of weapon (Spartan Weaponry) is no yardstick by itself
+                        byClass.put(type, byClass.containsKey(type) ? ItemStack.EMPTY : stack);
+                        List<String> rest = new ArrayList<>(words);
+                        rest.remove(material);
+                        String shape = String.join("_", rest);
+                        if (!shape.isEmpty()) {
+                            byShape.computeIfAbsent(shape, k -> new ArrayList<>()).add(stack);
+                        }
+                        break;
                     }
                 }
             }
@@ -1493,7 +1762,7 @@ public final class ValueRegistry {
                 if (!guessed.contains(key)) {
                     continue;
                 }
-                double floor = gearValue(stack, diamondByClass);
+                double floor = gearValue(stack);
                 if (floor <= values.get(key) * 1.05) {
                     continue;
                 }
@@ -1550,11 +1819,58 @@ public final class ValueRegistry {
                 }
             }
             if (!changed) {
-                return;
+                break;
             }
             resetDerived();
             deriveAll();
         }
+        for (ItemStack stack : gear) {
+            double v = gearValue(stack);
+            if (v > 0) {
+                statValues.put(key(stack), v);
+            }
+        }
+    }
+
+    /** Diamond and iron versions of each weapon or tool class, found by name: the yardsticks for gear of that class. */
+    private final Map<Class<?>, ItemStack> diamondByClass = new IdentityHashMap<>();
+    private final Map<Class<?>, ItemStack> ironByClass = new IdentityHashMap<>();
+    /** The same by shape: "longsword_diamond" is the yardstick for "longsword_umbrium", "diamond_sword" for "stone_sword". */
+    private final Map<String, List<ItemStack>> diamondByShape = new java.util.HashMap<>();
+    private final Map<String, List<ItemStack>> ironByShape = new java.util.HashMap<>();
+
+    /** The diamond (or iron) gear of the same shape as this item: its name with one or two adjacent words left out. */
+    @Nullable
+    private ItemStack shapeReference(Item item, Map<String, List<ItemStack>> byShape) {
+        ResourceLocation id = item.getRegistryName();
+        if (id == null || byShape.isEmpty()) {
+            return null;
+        }
+        String[] words = id.getPath().split("[^a-z]+");
+        for (int drop = 1; drop <= 2; drop++) {
+            for (int i = 0; i + drop <= words.length; i++) {
+                StringBuilder shape = new StringBuilder();
+                for (int j = 0; j < words.length; j++) {
+                    if (j >= i && j < i + drop) {
+                        continue;
+                    }
+                    if (shape.length() > 0) {
+                        shape.append('_');
+                    }
+                    shape.append(words[j]);
+                }
+                List<ItemStack> found = byShape.get(shape.toString());
+                if (found != null && !found.isEmpty()) {
+                    for (ItemStack candidate : found) {
+                        if (candidate.getItem().getClass() == item.getClass()) {
+                            return candidate;
+                        }
+                    }
+                    return found.get(0);
+                }
+            }
+        }
+        return null;
     }
 
     private static void addEstimate(Long2ObjectOpenHashMap<List<Double>> estimates, long key, double value) {
@@ -1626,6 +1942,101 @@ public final class ValueRegistry {
         return result;
     }
 
+    /**
+     * How much of an item's value comes from rarity guesses, 0 to 1, following the recipes it is priced by and weighing
+     * each ingredient by what it adds (a saw that is handed back adds nothing). A diamond longsword whose handle holds a
+     * guessed scrap is still a diamond longsword.
+     */
+    private double guessShare(long key, Long2DoubleOpenHashMap memo, int depth) {
+        return shareFrom(key, GUESS_LEAVES, memo, depth);
+    }
+
+    private static final java.util.EnumSet<Source> GUESS_LEAVES = java.util.EnumSet.of(Source.FALLBACK);
+    private static final java.util.EnumSet<Source> ESTIMATE_LEAVES = java.util.EnumSet.of(Source.FALLBACK, Source.GEAR, Source.DROP);
+
+    private double shareFrom(long key, java.util.EnumSet<Source> leaves, Long2DoubleOpenHashMap memo, int depth) {
+        if (memo.containsKey(key)) {
+            return memo.get(key);
+        }
+        Source source = sources.get(key);
+        double share = 0;
+        if (source != null && leaves.contains(source)) {
+            share = 1;
+        } else if (depth < 64 && (source == Source.RECIPE || source == Source.SMELTING || source == Source.BREWING)) {
+            memo.put(key, 0.0);
+            int index = via.get(key);
+            Rec rec = index < 0 ? null : recipes.get(index);
+            if (rec != null && rec.chosen != null) {
+                double total = 0;
+                double guessed = 0;
+                for (int i = 0; i < rec.chosen.length && i < rec.alternatives.length; i++) {
+                    long k = rec.chosen[i];
+                    if (k == key) {
+                        continue;
+                    }
+                    double v = Math.max(0, values.get(k));
+                    for (int j = 0; j < rec.alternatives[i].length; j++) {
+                        if (rec.containers[i][j] >= 0 && cheapestKey(rec.alternatives[i][j]) == k) {
+                            double back = lookup(rec.containers[i][j]);
+                            if (back > 0) {
+                                v = Math.max(0, v - back);
+                            }
+                            break;
+                        }
+                    }
+                    total += v;
+                    guessed += v * shareFrom(k, leaves, memo, depth + 1);
+                }
+                share = total > 0 ? guessed / total : 0;
+            }
+        }
+        memo.put(key, share);
+        return share;
+    }
+
+    private final Long2DoubleOpenHashMap guessShareMemo = new Long2DoubleOpenHashMap();
+    private final Long2DoubleOpenHashMap estimateShareMemo = new Long2DoubleOpenHashMap();
+
+    private static final String[] BASIS = {"guess", "gear", "drop", "known"};
+
+    /**
+     * The weakest evidence anywhere under an item's value: "guess" when some ingredient (at any depth) is a rarity
+     * guess, else "gear" for a stat estimate, else "drop" for a mob drop estimate, else "known".
+     */
+    private String basis(long key) {
+        return BASIS[basisRank(key, basisMemo, 0)];
+    }
+
+    private final Long2IntOpenHashMap basisMemo = new Long2IntOpenHashMap();
+
+    private int basisRank(long key, Long2IntOpenHashMap memo, int depth) {
+        if (memo.containsKey(key)) {
+            return memo.get(key);
+        }
+        Source source = sources.get(key);
+        int rank = 3;
+        if (source == Source.FALLBACK) {
+            rank = 0;
+        } else if (source == Source.GEAR) {
+            rank = 1;
+        } else if (source == Source.DROP) {
+            rank = 2;
+        } else if (depth < 64 && (source == Source.RECIPE || source == Source.SMELTING || source == Source.BREWING)) {
+            memo.put(key, 3);
+            int index = via.get(key);
+            long[] chosen = index < 0 ? null : recipes.get(index).chosen;
+            if (chosen != null) {
+                for (long k : chosen) {
+                    if (k != key) {
+                        rank = Math.min(rank, basisRank(k, memo, depth + 1));
+                    }
+                }
+            }
+        }
+        memo.put(key, rank);
+        return rank;
+    }
+
     private static boolean isGear(ItemStack stack) {
         try {
             if (stack.getMaxDamage() <= 0) {
@@ -1635,6 +2046,19 @@ public final class ValueRegistry {
         } catch (Throwable t) {
             return false;
         }
+    }
+
+    /** The best mining level of a tool (0 wood, 1 stone, 2 iron, 3 diamond), or -1. */
+    private static int toolLevel(ItemStack stack) {
+        int level = -1;
+        try {
+            for (String toolClass : stack.getItem().getToolClasses(stack)) {
+                level = Math.max(level, stack.getItem().getHarvestLevel(stack, toolClass, null, null));
+            }
+        } catch (Throwable ignored) {
+            // A tool that needs a player to answer
+        }
+        return level;
     }
 
     private static double attackDamage(ItemStack stack) {
@@ -1653,67 +2077,118 @@ public final class ValueRegistry {
     }
 
     /**
-     * What gear's stats are worth, measured against the diamond version: the same value at the same strength,
-     * growing with the square of how much stronger it is. 0 for gear weaker than diamond.
+     * What gear's stats are worth, measured against the iron and diamond versions of the same kind of gear: the diamond
+     * value at diamond strength, growing with the square of how much stronger it is; between iron and diamond strength
+     * the value moves evenly (on a log scale) from the iron value to the diamond value; below iron it falls off steeply.
+     * Durability nudges it (x0.7 to x1.5). 0 when there is nothing to compare with.
      */
-    private double gearValue(ItemStack stack, Map<Class<?>, ItemStack> diamondByClass) {
+    private double gearValue(ItemStack stack) {
         Item item = stack.getItem();
-        ItemStack reference;
+        ItemStack diamond;
+        ItemStack iron;
         double score;
-        double referenceScore;
+        double diamondScore;
+        double ironScore;
         if (item instanceof ItemArmor) {
             ItemArmor armor = (ItemArmor) item;
-            Item diamond;
             switch (armor.armorType) {
                 case HEAD:
-                    diamond = Items.DIAMOND_HELMET;
+                    diamond = new ItemStack(Items.DIAMOND_HELMET);
+                    iron = new ItemStack(Items.IRON_HELMET);
                     break;
                 case CHEST:
-                    diamond = Items.DIAMOND_CHESTPLATE;
+                    diamond = new ItemStack(Items.DIAMOND_CHESTPLATE);
+                    iron = new ItemStack(Items.IRON_CHESTPLATE);
                     break;
                 case LEGS:
-                    diamond = Items.DIAMOND_LEGGINGS;
+                    diamond = new ItemStack(Items.DIAMOND_LEGGINGS);
+                    iron = new ItemStack(Items.IRON_LEGGINGS);
                     break;
                 case FEET:
-                    diamond = Items.DIAMOND_BOOTS;
+                    diamond = new ItemStack(Items.DIAMOND_BOOTS);
+                    iron = new ItemStack(Items.IRON_BOOTS);
                     break;
                 default:
                     return 0;
             }
-            reference = new ItemStack(diamond);
-            ItemArmor diamondArmor = (ItemArmor) diamond;
             score = armor.damageReduceAmount + armor.toughness;
-            referenceScore = diamondArmor.damageReduceAmount + diamondArmor.toughness;
+            diamondScore = ((ItemArmor) diamond.getItem()).damageReduceAmount + ((ItemArmor) diamond.getItem()).toughness;
+            ironScore = ((ItemArmor) iron.getItem()).damageReduceAmount + ((ItemArmor) iron.getItem()).toughness;
         } else {
-            reference = diamondByClass.get(item.getClass());
-            if (reference == null) {
+            diamond = shapeReference(item, diamondByShape);
+            iron = shapeReference(item, ironByShape);
+            if (diamond == null) {
+                ItemStack byClass = diamondByClass.get(item.getClass());
+                diamond = byClass == null || byClass.isEmpty() ? null : byClass;
+            }
+            if (iron == null) {
+                ItemStack byClass = ironByClass.get(item.getClass());
+                iron = byClass == null || byClass.isEmpty() ? null : byClass;
+            }
+            if (diamond == null || iron == null) {
+                ItemStack vanillaDiamond;
+                ItemStack vanillaIron;
                 if (item instanceof ItemPickaxe) {
-                    reference = new ItemStack(Items.DIAMOND_PICKAXE);
+                    vanillaDiamond = new ItemStack(Items.DIAMOND_PICKAXE);
+                    vanillaIron = new ItemStack(Items.IRON_PICKAXE);
                 } else if (item instanceof ItemAxe) {
-                    reference = new ItemStack(Items.DIAMOND_AXE);
+                    vanillaDiamond = new ItemStack(Items.DIAMOND_AXE);
+                    vanillaIron = new ItemStack(Items.IRON_AXE);
                 } else if (item instanceof ItemSpade) {
-                    reference = new ItemStack(Items.DIAMOND_SHOVEL);
+                    vanillaDiamond = new ItemStack(Items.DIAMOND_SHOVEL);
+                    vanillaIron = new ItemStack(Items.IRON_SHOVEL);
                 } else {
-                    reference = new ItemStack(Items.DIAMOND_SWORD);
+                    vanillaDiamond = new ItemStack(Items.DIAMOND_SWORD);
+                    vanillaIron = new ItemStack(Items.IRON_SWORD);
+                }
+                if (diamond == null) {
+                    diamond = vanillaDiamond;
+                }
+                if (iron == null || attackDamage(iron) >= attackDamage(diamond)) {
+                    iron = diamond.getItem() == vanillaDiamond.getItem() ? vanillaIron : null;
                 }
             }
-            score = attackDamage(stack);
-            referenceScore = attackDamage(reference);
+            if (item instanceof ItemTool && toolLevel(stack) >= 0 && toolLevel(diamond) >= 0) {
+                // Tools are ranked by what they can mine: a stone axe hits as hard as a diamond one
+                score = toolLevel(stack) + 1;
+                diamondScore = toolLevel(diamond) + 1;
+                ironScore = iron == null || toolLevel(iron) < 0 ? 0 : toolLevel(iron) + 1;
+            } else {
+                score = attackDamage(stack);
+                diamondScore = attackDamage(diamond);
+                ironScore = iron == null ? 0 : attackDamage(iron);
+            }
         }
-        if (score <= 0 || referenceScore <= 0) {
+        if (score <= 0 || diamondScore <= 0) {
             return 0;
         }
-        double ratio = score / referenceScore;
-        if (ratio < 0.95) {
+        double diamondValue = values.get(key(diamond));
+        if (diamondValue <= 0 || diamond.getMaxDamage() <= 0) {
             return 0;
         }
-        double referenceValue = values.get(key(reference));
-        if (referenceValue <= 0 || reference.getMaxDamage() <= 0) {
-            return 0;
+        double base;
+        ItemStack reference;
+        if (score >= diamondScore * 0.95) {
+            double ratio = score / diamondScore;
+            base = diamondValue * ratio * ratio;
+            reference = diamond;
+        } else {
+            double ironValue = iron == null ? -1 : values.get(key(iron));
+            if (ironValue <= 0 || ironScore <= 0 || ironScore >= diamondScore || iron.getMaxDamage() <= 0) {
+                return 0;
+            }
+            if (score >= ironScore) {
+                double t = (score - ironScore) / (diamondScore - ironScore);
+                base = ironValue * Math.pow(diamondValue / ironValue, t);
+                reference = t >= 0.5 ? diamond : iron;
+            } else {
+                base = ironValue * Math.pow(score / ironScore, 8);
+                reference = iron;
+            }
         }
         double durability = Math.sqrt(stack.getMaxDamage() / (double) reference.getMaxDamage());
         durability = Math.max(0.7, Math.min(1.5, durability));
-        return Math.min(referenceValue * 16, referenceValue * ratio * ratio * durability);
+        return Math.min(diamondValue * 16, base * durability);
     }
 
     private void assignFallback(long key) {
@@ -1721,7 +2196,15 @@ public final class ValueRegistry {
         if (stack.isEmpty()) {
             return;
         }
-        values.put(key, Math.max(MIN_VALUE, fallback(stack)));
+        double value = fallback(stack);
+        if (stack.getItem() instanceof ItemRecord) {
+            // A music disc is a music disc: modded ones are marked rare, which would make them worth 4 diamonds
+            double record = values.get(key(Items.RECORD_13, 0));
+            if (record > 0) {
+                value = record;
+            }
+        }
+        values.put(key, Math.max(MIN_VALUE, value));
         sources.put(key, Source.FALLBACK);
     }
 
@@ -1810,7 +2293,8 @@ public final class ValueRegistry {
         }
         for (long key : allKnownKeys()) {
             Source source = sources.get(key);
-            if (source == Source.BASE || source == Source.ORE_DICT || source == Source.OVERRIDE || source == Source.PACK || source == Source.GEAR) {
+            if (source == Source.BASE || source == Source.ORE_DICT || source == Source.OVERRIDE || source == Source.PACK || source == Source.GEAR
+                    || source == Source.DROP) {
                 keys.add(key);
             }
         }
@@ -1841,7 +2325,7 @@ public final class ValueRegistry {
                 // Spawn eggs, enchanted books: their value lives in NBT, a blank one would be pointless
                 continue;
             }
-            if (catalogByKey.containsKey(key)) {
+            if (catalogByKey.containsKey(key) || hiddenReason(key, stack) != null) {
                 continue;
             }
             ResourceLocation id = stack.getItem().getRegistryName();
@@ -1875,6 +2359,21 @@ public final class ValueRegistry {
             catalogByKey.put(key, entry);
         }
         catalog.sort(Comparator.comparingDouble((CatalogEntry e) -> e.value));
+    }
+
+    /** Why an item is kept off the wheel even though it has a value, or null. */
+    @Nullable
+    private String hiddenReason(long key, ItemStack stack) {
+        if (unobtainable.contains(key)) {
+            return "unobtainable";
+        }
+        if (fixed.contains(key)) {
+            return null;
+        }
+        if (!jeiHidden.isEmpty() && matchesAny(jeiHidden, stack)) {
+            return "jei";
+        }
+        return null;
     }
 
     private static boolean matchesAny(List<ItemPattern> patterns, ItemStack stack) {

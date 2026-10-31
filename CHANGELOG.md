@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.2.0] - unreleased
+
+### Added
+- Potions are valued and offered by potion type (drinkable, splash, lingering), with every brewing recipe (vanilla,
+  mods and CraftTweaker) walked; tipped arrows are valued but not offered.
+- Value scale: iron ingot 1024, gold 2048, diamond 8192. Built-in values for progression items (XP, hearts, trinkets).
+- Items nobody can get are never offered: things only made by recipes that need a missing material (Spartan weapons for
+  metals the pack lacks), and things the modpack hides from JEI (`hideJeiHidden`, on by default).
+- Gear is checked against its stats at every tier (iron and diamond versions of the same weapon as yardsticks, tools by
+  mining level), so materials that only make gear get sensible values.
+- Mob drop values for RLCraft Dregora worked out from how hard each mob is and how often it drops them.
+- Unpriced modded music discs are worth what a vanilla disc is worth.
+- `upgraderwheel-values.csv` has more columns: cheapest recipe and its cost, stat value, why an item is hidden, how much
+  of a value rests on estimates, and the item's own stats.
+
+### Fixed
+- Values could differ between two worlds with the same mods (Bookshelf 3936 or 384, Purple Dye 440 or 16): when two
+  recipes cost the same, whichever came first decided whether an item counted as guessed. Real recipes now win ties.
+- Diamonds were worth 2341 through a cheap modded recipe.
+- Spartan Weaponry wood and stone weapons were compared with the wrong diamond weapon.
+
 ## [1.1.0] - 2026-10-23
 
 ### Added
