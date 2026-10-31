@@ -12,7 +12,7 @@ mod); see THIRD_PARTY_NOTICES.md.
 ## Paths (Windows)
 
 - Project: `C:\Users\Malek Baghdadi\Downloads\upgrader-wheel` (git repo, branch `main`, `origin` =
-  github.com/MalekBaghdadi/upgrader-wheel, PRIVATE until the README is done; see "Still to do" 4)
+  github.com/MalekBaghdadi/upgrader-wheel, PUBLIC since 2026-10-31)
 - Continuing on another machine: `git clone` the repo; every path below is specific to Malek's Windows PC (game
   instances, JDK, harness), so adjust them. Gradle fetches Java 8 itself; the harness server is NOT in git (see below).
 - Game instance (TLauncher): `C:\Users\Malek Baghdadi\AppData\Roaming\.minecraft\versions\RLCraftDragoraEZ`
@@ -145,11 +145,9 @@ Still to do, in rough order:
    Forge 1.12.2, TLauncher, Prism/MultiMC, ATLauncher...), server/LAN (mod on server and every client; values come from
    the server's config), other packs, uninstall, troubleshooting; then playing, values/tuning (new scale, potion lines,
    own pack file), building. Update CHANGELOG.md with 1.2.0.
-4. The repo `MalekBaghdadi/upgrader-wheel` exists and `main` is pushed, but it was created PRIVATE (so work could move
-   between machines before the README was ready). When step 3 is done: `gh repo edit MalekBaghdadi/upgrader-wheel
-   --visibility public --accept-visibility-change-consequences` (the installer and `update.json` need public raw access;
-   `gh auth status` on Malek's PC now lists the `workflow` scope, earlier notes said it did not), then create release
-   `v1.2.0` with the jar
+4. The repo `MalekBaghdadi/upgrader-wheel` exists, `main` is pushed, and it is PUBLIC (made public 2026-10-31, before the
+   README rewrite). `gh auth status` on Malek's PC lists the `workflow` scope, earlier notes said it did not. Create
+   release `v1.2.0` with the jar
    (non-dev), `Install-UpgraderWheel.bat` and `install.ps1` attached. Then test the installer's download path.
 5. Malek tests in game: potion results on the wheel (icon, name, search `@potioncore`, winning one gives the right
    potion), tooltips, `/upgrader value` on a potion, multiplayer if possible.
