@@ -189,6 +189,20 @@ locks:master_key = 16384
 simpledifficulty:ice_chunk = 256
 simpledifficulty:magma_chunk = 256
 
+# ---------------------------------------------------------------- Boss loot (decided 2026-11-01)
+# Lava Cow Skeleton King (850 health): its rare drops come to about a Wither kill per kill
+mod_lavacow:famine = 40d
+mod_lavacow:war = 40d
+mod_lavacow:halo_necklace = 40d
+mod_lavacow:dreamcatcher = 40d
+mod_lavacow:skeletonking_mace = 16d           # "Death"
+mod_lavacow:skeletonking_crown = 10d          # The Crown of Rule, every kill
+# Forgotten Items golem armor (loot only; its stats say 13-20 diamonds a piece)
+forgottenitems:golem_helmet = 32d
+forgottenitems:golem_chestplate = 32d
+forgottenitems:golem_leggings = 32d
+forgottenitems:golem_boots = 32d
+
 # ---------------------------------------------------------------- Generated (tools/gen_rules.py): raw materials in bulk
 # NuclearCraft metals and fuels, VariedCommodities, Defiled Lands and SRParasites drops, Grappling Hook parts...
 aquaculture:loot:1 = 6144   # Neptunium Ingot

@@ -125,6 +125,14 @@ installs Forge and copies config/scripts. About 600 MB, a few minutes. Java 8 fo
   HIGH. These pins are at the top of the built-in pack list (also Resistance/Absorption/Magic Shield/Escape/Curing/
   Curse Break 2d, 1-Up 3d, Return 4d, long Flight 22d).
 - All brewable potions are winnable (drinkable, splash, lingering).
+- 2026-11-01 (pack list "Boss loot" section): Skeleton King drops Famine/War/Halo Necklace/Dream Catcher 40d, "Death"
+  16d, Crown of Rule 10d; Forgotten Items golem armor 32d a piece. Asked for but NOT applied, waiting on a reply because
+  the checks flagged them: ordinary potions 4d, Flight 32d, other potion pins 8d (all brew for 50-400: printers; offered
+  fix = potions and tipped arrows can be won but not bet, which needs a `nobet` pack-list keyword); Living/Sentient
+  chestplate 60d/80d (stats 2.5d/11d; would make parasite drops worth diamonds each); soulstones 64d (bosses drop 2-3);
+  race rings 128d (rare Lost Cities loot; quests only ask for them); Miner's Ring (Baubles test item: nowin?), Famine
+  Boots 32d (rest of the set 5-8d), Midnight Mourne 32d, Sentient weapons 128d, bound tools 32d, troll weapons and
+  Dread Knight's Sword 40d (mob drops from mid-tier mobs, stats ~3d).
 - GitHub repo should be PUBLIC (MIT). Friends play the same pack single-player, together on a server/LAN, and some in
   other 1.12.2 packs, some on the official launcher or CurseForge rather than TLauncher.
 
@@ -180,7 +188,7 @@ Dust, a passive mob's drop worth 84); Recall pinned 4d brews for 396 (Warp Scrol
 or keep the pins and raise the gating ingredients so brewing costs what the potion is worth.
 
 Still to do, in rough order:
-1. The potion decision above, then rerun balance.py.
+1. The potion decision above and the other pending answers (see Malek's decisions, 2026-11-01), then rerun balance.py.
 2. Enchantments: `enchantmentLevelValue` is a flat 256/level on bets only (books and enchanted gear are never prizes).
    A per-enchantment value (rarity, max level, treasure, curses at 0) must stay below what an enchanting-table roll
    costs (3 levels at 30 = ~300 XP points = ~22k in XP bottles at 512 each, plus 3 lapis = 2.6k) or it becomes a printer.
