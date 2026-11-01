@@ -195,17 +195,15 @@ Still to do, in rough order:
    A per-enchantment value (rarity, max level, treasure, curses at 0) must stay below what an enchanting-table roll
    costs (3 levels at 30 = ~300 XP points = ~22k in XP bottles at 512 each, plus 3 lapis = 2.6k) or it becomes a printer.
 3. Remaining report lines: a few Lava Cow daggers below their stats; ~1000 guessed prizes are junk/stone tier (32).
-4. `install/Install-UpgraderWheel.bat` (double-click wrapper: runs `install.ps1` beside it, else downloads it from
-   raw.githubusercontent) and `install/install.sh` for macOS/Linux (curl one-liner; find `~/Library/Application Support/
-   minecraft`, `~/.minecraft`, Prism/CurseForge folders).
-5. Rewrite README.md for friends: quick install (one-liner, .bat, manual per launcher: CurseForge, official launcher with
-   Forge 1.12.2, TLauncher, Prism/MultiMC, ATLauncher...), server/LAN (mod on server and every client; values come from
-   the server's config), other packs, uninstall, troubleshooting; then playing, values/tuning (new scale, potion lines,
-   own pack file), building.
-6. Release `v1.2.0` on the public repo with the jar (non-dev), `Install-UpgraderWheel.bat` and `install.ps1` attached,
-   then test the installer's download path. (Earlier state: 1.2.0 jar copied by hand into TLauncher `RLCraftDragoraEZ\mods`
-   on 2026-10-27, before this session's changes; `update.bat` failed from Claude's shell, consider
-   `call "%~dp0gradlew.bat"` and building before deleting the old jar.)
+4. `install/install.sh` for macOS/Linux (curl one-liner; find `~/Library/Application Support/minecraft`,
+   `~/.minecraft`, Prism/CurseForge folders). `install/Install-UpgraderWheel.bat` exists (2026-11-01; runs `install.ps1`
+   beside it, else downloads it from raw.githubusercontent) but was never run on Windows.
+5. README.md: install, valuation and pack-list sections were corrected for 1.2.0 (2026-11-01); still to add for friends:
+   per-launcher manual steps (official launcher with Forge 1.12.2, TLauncher...), other packs, uninstall, troubleshooting.
+6. Releases: `.github/workflows/release.yml` publishes one when a `v*` tag is pushed (builds on JDK 25, attaches the jar,
+   `install.ps1` and `Install-UpgraderWheel.bat`, notes = that version's CHANGELOG section; fails if the tag and
+   `mod_version` differ). v1.2.0 was tagged 2026-11-01 before any in-game test. Test the installer's download path.
+   (`update.bat` failed from Claude's shell, consider `call "%~dp0gradlew.bat"` and building before deleting the old jar.)
 7. Malek tests in game: potion results on the wheel (icon, name, search `@potioncore`, winning one gives the right
    potion), tooltips, `/upgrader value` on a potion, multiplayer if possible.
 

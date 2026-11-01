@@ -1,8 +1,10 @@
 # Changelog
 
-## [1.2.0] - unreleased
+## [1.2.0] - 2026-11-01
 
 ### Added
+- Windows installer: `Install-UpgraderWheel.bat` on the release page (or the PowerShell one-liner in the README) finds
+  your Minecraft instances and installs or updates the mod.
 - Potions are valued and offered by potion type (drinkable, splash, lingering), with every brewing recipe (vanilla,
   mods and CraftTweaker) walked; tipped arrows are valued but not offered.
 - Value scale: iron ingot 1024, gold 2048, diamond 8192. Built-in values for progression items (XP, hearts, trinkets).
