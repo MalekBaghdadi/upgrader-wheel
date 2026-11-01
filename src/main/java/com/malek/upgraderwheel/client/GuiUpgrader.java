@@ -25,6 +25,7 @@ import org.lwjgl.input.Mouse;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
@@ -307,15 +308,11 @@ public class GuiUpgrader extends GuiContainer {
         if (loading) {
             return;
         }
-        String query = search == null ? "" : search.getText().trim().toLowerCase(Locale.ROOT);
-        String[] tokens = query.isEmpty() ? new String[0] : query.split("\\s+");
+        String[] tokens = SearchMatch.tokens(search == null ? "" : search.getText());
         double bet = betValue();
         boolean betOk = betStatus() == Codes.Bet.OK && bet > 0;
         double edge = ClientCatalog.houseEdge();
-        for (ClientCatalog.Entry entry : ClientCatalog.entries()) {
-            if (!matches(entry, tokens)) {
-                continue;
-            }
+        for (ClientCatalog.Entry entry : searchResults(tokens)) {
             int count = 1;
             if (filterBand >= 0) {
                 if (!betOk) {
@@ -336,17 +333,30 @@ public class GuiUpgrader extends GuiContainer {
         clampScroll();
     }
 
-    private static boolean matches(ClientCatalog.Entry entry, String[] tokens) {
-        for (String token : tokens) {
-            if (token.startsWith("@")) {
-                if (!entry.modId.startsWith(token.substring(1))) {
-                    return false;
-                }
-            } else if (!entry.searchName.contains(token)) {
-                return false;
+    /**
+     * Entries that have every word of the query; if none does, those with at least half of it, best first
+     * ("ring of strength" finds Potion of Strength when nothing is both a ring and strength).
+     */
+    private static List<ClientCatalog.Entry> searchResults(String[] tokens) {
+        if (tokens.length == 0) {
+            return ClientCatalog.entries();
+        }
+        int total = SearchMatch.total(tokens);
+        List<ClientCatalog.Entry> full = new ArrayList<>();
+        List<ClientCatalog.Entry> partial = new ArrayList<>();
+        for (ClientCatalog.Entry entry : ClientCatalog.entries()) {
+            int score = SearchMatch.score(entry.searchName, entry.modId, tokens);
+            if (score == total) {
+                full.add(entry);
+            } else if (score > 0 && score * 2 >= total) {
+                partial.add(entry);
             }
         }
-        return true;
+        if (!full.isEmpty()) {
+            return full;
+        }
+        partial.sort(Comparator.comparingInt((ClientCatalog.Entry e) -> -SearchMatch.score(e.searchName, e.modId, tokens)));
+        return partial;
     }
 
     private void clampScroll() {

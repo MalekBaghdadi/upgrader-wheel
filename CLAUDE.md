@@ -193,7 +193,7 @@ Still to do, in rough order:
 1. Malek tests in game (item 7 below), especially Walking Head rarity (Blood Tear 8d) and potion prices.
 2. Enchantments: `enchantmentLevelValue` is a flat 256/level on bets only (books and enchanted gear are never prizes).
    A per-enchantment value (rarity, max level, treasure, curses at 0) must stay below what an enchanting-table roll
-   costs (3 levels at 30 = ~300 XP points = ~22k in XP bottles at 512 each, plus 3 lapis = 2.6k) or it becomes a printer.
+   costs (3 levels at 30 = ~300 XP points = ~88k in XP bottles at 2048 each, plus 3 lapis = 2.6k) or it becomes a printer.
 3. Remaining report lines: a few Lava Cow daggers below their stats; ~1000 guessed prizes are junk/stone tier (32).
 4. `install/install.sh` for macOS/Linux (curl one-liner; find `~/Library/Application Support/minecraft`,
    `~/.minecraft`, Prism/CurseForge folders). `install/Install-UpgraderWheel.bat` exists (2026-11-01; runs `install.ps1`

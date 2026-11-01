@@ -19,6 +19,10 @@
   anyone with a brewing stand make diamonds); Flight is dear through its Pixie Dust instead.
 - RLCraft Dregora values decided by Malek: Sentient armor and weapons at the top (70-80 diamonds), boss loot,
   soulstones, race rings and other rare items.
+- Forgiving search: words in any order, small typos ("strenght"), filler words ("of", "the") ignored; if nothing has
+  every word, the best partial matches are shown ("ring of strength" finds Potion of Strength).
+- Dearer: XP Tome 20 diamonds, Jar of Experience 8, Bottle o' Enchanting 2048, Armor Underwear liners x4 (Ozzy liners
+  come out x4 from their recipes), Magma Chunk x2, Golden Book Wyrm Scale 64 diamonds.
 - `upgraderwheel-values.csv` has more columns: cheapest recipe and its cost, stat value, why an item is hidden, how much
   of a value rests on estimates, and the item's own stats.
 

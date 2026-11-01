@@ -33,7 +33,8 @@ To try it in a dev world first: `gradlew runClient`.
   (gold ingots in the corners, diamonds on the edges, an anvil in the middle) and right-click it, or press U while carrying it.
 - Put the item you want to bet in the left slot. Its value shows under it.
 - Pick a result on the right. The list is sorted best odds first and starts at the first real upgrade.
-  Search by name, or `@modid` to filter by mod. Right-click the search box to clear it.
+  Search by name (any word order, small typos are fine, "of" and "the" are ignored), or `@modid` to filter by mod.
+  Right-click the search box to clear it.
 - `~75%`, `~50%`, `~25%`, `~10%` show only results near those odds (for stackable results it picks the amount that lands there).
 - Stackable results have `-` / `+` (Shift for 10, or scroll the mouse over them).
 - Click **Upgrade**, then click again to confirm. The server decides; the wheel shows it.

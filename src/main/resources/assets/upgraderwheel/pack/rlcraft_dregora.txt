@@ -128,8 +128,9 @@ lycanitesmobs:equipment = nowin              # crafted equipment lives in its da
 # ---------------------------------------------------------------- Progression items (what a full playthrough chases)
 # Hand-priced so the wheel keeps some progression: health, XP, movement and trinkets cost real effort.
 # XP and enchanting
-minecraft:experience_bottle = 512            # about 7 XP; a level-30 enchant costs far more than a diamond
-disenchanter:experience_jar = 16384
+minecraft:experience_bottle = 2048           # about 7 XP; a level-30 enchant costs far more than a diamond
+xpbook:xp_book = 20d                         # XP Tome: reusable XP storage (recipe says 4208), dearer than the Jar of Experience
+disenchanter:experience_jar = 8d
 disenchanter:disenchantmenttable = 82336
 levelup2:endore = 2048                       # ore chunk, smelts into nothing
 # Health (Scaling Health)
@@ -176,7 +177,15 @@ rlmixins:antimagic_talisman = 4d
 locks:key = 1024
 locks:master_key = 16384
 simpledifficulty:ice_chunk = 256
-simpledifficulty:magma_chunk = 256
+simpledifficulty:magma_chunk = 512             # x2 (2026-11-01): Magma Block and everything made from it follow
+# Armor Underwear liners, x4 (2026-11-01): Ozzy liners are crafted from the Warming and Cooling ones, so they follow
+armorunder:cooling_goo = 160
+armorunder:heating_goo = 1664
+armorunder:cool_liner_material = 448
+armorunder:warm_liner_material = 1952
+armorunder:goopak_cool = 224
+armorunder:goopak_heat = 724
+armorunder:liner_snips = 2732
 
 # ---------------------------------------------------------------- Boss loot (decided 2026-11-01)
 # Lava Cow Skeleton King (850 health): its rare drops come to about a Wither kill per kill
@@ -254,7 +263,7 @@ biomesoplenty:plant_0:4 = 64   # Poison Ivy
 biomesoplenty:sapling_0:2 = 64   # Bamboo Sapling
 biomesoplenty:willow_vine:0 = 64   # Willow Vine
 contenttweaker:reinforced_concrete:0 = 512   # tile.contenttweaker.reinforced_concrete.name
-defiledlands:book_wyrm_scale_golden:0 = 2048   # Golden Book Wyrm Scale
+defiledlands:book_wyrm_scale_golden:0 = 64d   # Golden Book Wyrm Scale: endgame (2026-11-01)
 defiledlands:dirt_defiled:0 = 32   # Defiled Dirt
 defiledlands:grass_defiled:0 = 32   # Defiled Grass
 defiledlands:sand_defiled:0 = 32   # Defiled Sand
@@ -363,7 +372,7 @@ quark:crystal:7 = 512   # Violet Cave Crystal
 quark:crystal:8 = 512   # Black Cave Crystal
 scalinghealth:heartdust:0 = 512   # Heart Dust
 simpledifficulty:ice_chunk:0 = 256   # Ice Chunk
-simpledifficulty:magma_chunk:0 = 256   # Magma Chunk
+simpledifficulty:magma_chunk:0 = 512   # Magma Chunk
 srparasites:bloodyice:0 = 256   # Bloody Ice
 srparasites:gore:0 = 256   # Assimilated Remains (S)
 srparasites:gore:1 = 256   # Assimilated Remains (L)
