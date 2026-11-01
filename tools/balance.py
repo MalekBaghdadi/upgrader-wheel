@@ -104,7 +104,7 @@ def main():
     others = sorted((r for r in printers if r['kind'] != 'potion'), key=lambda r: -(r['v'] - r['cost']))
     if potions:
         by_src = collections.Counter(r['source'] for r in potions)
-        print(f"{len(potions)} potions (sources {dict(by_src)}): the potion floor (potionValue) and pack pins sit above brewing cost."
+        print(f"{len(potions)} potions (sources {dict(by_src)}): brewedPotionFloor (config) or pack pins sit above brewing cost."
               f" Biggest: " + "; ".join(f"{short(r, 22)} {fnum(r['v'])} vs {fnum(r['cost'])}"
                                          for r in sorted(potions, key=lambda r: -(r['v'] - r['cost']))[:3]))
     print(f"{len(others)} other items. By profit per craft:")

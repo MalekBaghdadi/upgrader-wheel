@@ -1490,7 +1490,7 @@ public final class ValueRegistry {
     }
 
     /**
-     * The least a potion with an effect is worth: potionValue for the drinkable bottle, one brewing step more for a
+     * The least a brewed potion with an effect is worth: brewedPotionFloor for the drinkable bottle, one brewing step more for a
      * splash potion and two for a lingering one (some packs brew those straight from a cheap base); 0 for the rest.
      */
     private double potionFloor(long key) {
@@ -1501,8 +1501,8 @@ public final class ValueRegistry {
         if (type == null || type.getEffects().isEmpty()) {
             return 0;
         }
-        double floor = potionFallback(key);
         int form = formOf(key);
+        double floor = ModConfig.brewedPotionFloor * Math.pow(ModConfig.brewingStepMultiplier, form);
         if (form > 0) {
             // A splash potion is never worth less than the drinkable one it is brewed from, a lingering one never
             // less than the splash one, even when the pack has a cheaper direct recipe for it

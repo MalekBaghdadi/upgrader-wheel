@@ -12,6 +12,11 @@
   mining level), so materials that only make gear get sensible values.
 - Mob drop values for RLCraft Dregora worked out from how hard each mob is and how often it drops them.
 - Unpriced modded music discs are worth what a vanilla disc is worth.
+- Brewed potions are worth what they cost to brew, at least `brewedPotionFloor` (1 iron); `potionValue` now only
+  prices potion types no brewing recipe makes. Brewable potions are no longer pinned (a pin above the brewing cost let
+  anyone with a brewing stand make diamonds); Flight is dear through its Pixie Dust instead.
+- RLCraft Dregora values decided by Malek: Sentient armor and weapons at the top (70-80 diamonds), boss loot,
+  soulstones, race rings and other rare items.
 - `upgraderwheel-values.csv` has more columns: cheapest recipe and its cost, stat value, why an item is hidden, how much
   of a value rests on estimates, and the item's own stats.
 

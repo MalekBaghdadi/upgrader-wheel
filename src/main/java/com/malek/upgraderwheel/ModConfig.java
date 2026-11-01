@@ -47,6 +47,7 @@ public final class ModConfig {
     public static double fallbackUnstackableMultiplier = 4;
     public static double fallbackPerDurabilityPoint = 2;
     public static double potionValue = 8192;
+    public static double brewedPotionFloor = 1024;
     public static double brewingStepMultiplier = 1.25;
     public static boolean potionResults = true;
     public static boolean builtInPackList = true;
@@ -119,8 +120,12 @@ public final class ModConfig {
         fallbackPerDurabilityPoint = Math.max(0, c.get(CAT_VALUES, "fallbackPerDurabilityPoint", 2.0,
                 "Gear with durability is guessed at least this much per durability point.", 0.0, 1.0E6).getDouble());
         potionValue = Math.max(0, c.get(CAT_VALUES, "potionValue", 8192.0,
-                "The least a brewed potion with an effect is worth (8192 = 4 gold ingots = 1 diamond). Potions made from\n"
-                        + "costly ingredients are worth more, and the pack list prices special ones (potion:potioncore:flight = 18d).", 0.0, 1.0E12).getDouble());
+                "What a potion type that no brewing recipe makes (loot only) is worth (8192 = 1 diamond); the pack list prices\n"
+                        + "special ones (potion:potioncore:revival = 3d). Brewed potions are worth what they cost to brew instead.", 0.0, 1.0E12).getDouble());
+        brewedPotionFloor = Math.max(0, c.get(CAT_VALUES, "brewedPotionFloor", 1024.0,
+                "The least a brewed potion with an effect is worth (1024 = 1 iron ingot); splash and lingering ones one and two\n"
+                        + "brewing steps more. Brewed potions are otherwise worth what they cost to brew. Keep this low: potions can be\n"
+                        + "bet, so a floor far above what brewing costs lets anyone with a brewing stand make value out of nothing.", 0.0, 1.0E12).getDouble());
         brewingStepMultiplier = clamp(c.get(CAT_VALUES, "brewingStepMultiplier", 1.25,
                 "Each brewing step (awkward to a potion, a potion to its long, strong, splash or lingering version) is worth\n"
                         + "what goes in times this. One ingredient brews three bottles.", 1.0, 10.0).getDouble(), 1.0, 10.0);

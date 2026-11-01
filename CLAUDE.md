@@ -62,8 +62,8 @@ installs Forge and copies config/scripts. About 600 MB, a few minutes. Java 8 fo
 
 - `UpgraderWheel`: @Mod, rebuilds values on FMLServerStartedEvent.
 - `ModConfig`: classic Forge Configuration (`reload()` re-reads the file). `parseValue` accepts `2d`/`3i`/`1g`/`1e`
-  (`i` = 1024 now). Value options include `potionValue` (8192), `brewingStepMultiplier` (1.25), `potionResults`,
-  `builtInPackList`; rules include `hideJeiHidden`.
+  (`i` = 1024 now). Value options include `potionValue` (8192: loot-only potion types), `brewedPotionFloor` (1024),
+  `brewingStepMultiplier` (1.25), `potionResults`, `builtInPackList`; rules include `hideJeiHidden`.
 - `value/ValueRegistry`: the value engine (server side). Order in `build()`:
   creative stacks -> crafting recipes -> smelting -> `collectBrewing` (probes every Forge IBrewingRecipe with every potion
   type x bottle form and every creative stack; one ingredient makes 3 bottles) -> `addTippedArrowRecipes` ->
@@ -80,8 +80,9 @@ installs Forge and copies config/scripts. About 600 MB, a few minutes. Java 8 fo
   higher (and on a tie: before that fix, recipe order decided whether every wooden item was "guessed", so two worlds
   with the same mods disagreed on ~120 values; now a fresh harness and an old one give identical CSVs, checked
   2026-10-31); smelting one seed into another seed never lowers it; an item follows its own recipe upward when an ingredient
-  is re-priced (unless that loops); brewing steps x1.25; potions with an effect never go below the potion floor
-  (potionValue for drinkable, x1.25 splash, x1.5625 lingering, and never below the lower form of the same type x1.25).
+  is re-priced (unless that loops); brewing steps x1.25; brewed potions with an effect never go below brewedPotionFloor
+  (x1.25 splash, x1.5625 lingering, and never below the lower form of the same type x1.25). Loot-only potion types (no
+  brewing recipe) are guessed at potionValue.
 - Gear estimates (`estimateFromGear`/`gearValue`): gear is compared with the iron and diamond version of the same thing.
   Yardsticks are found by name shape (`longsword_umbrium` -> `longsword_diamond`/`longsword_iron`, `stone_sword` ->
   `diamond_sword`), then by class if the class has exactly one, then vanilla. Armor: vanilla iron/diamond of the slot,
@@ -120,19 +121,23 @@ installs Forge and copies config/scripts. About 600 MB, a few minutes. Java 8 fo
 ## Value scale and Malek's decisions (2026-10-24)
 
 - Iron ingot 1024 (raised from 256 on purpose; gold and diamond unchanged), gold 2048, diamond 8192 (1d).
-- Potions: basic brewed potion 4 gold (= potionValue 8192); strong tier (Regeneration, Strength, Healing II) 2 diamonds;
-  Recall Potion 4 diamonds (Wormhole derives to about 5); Flight 18 diamonds. Malek wants hard-to-make things valued
-  HIGH. These pins are at the top of the built-in pack list (also Resistance/Absorption/Magic Shield/Escape/Curing/
-  Curse Break 2d, 1-Up 3d, Return 4d, long Flight 22d).
+- Malek wants hard-to-make things valued HIGH, and (2026-11-01) everything endgame the most expensive.
+- Potions (2026-11-01, replaces the 2026-10-24 pins): EVERYTHING stays bettable, potions included, so a brewed potion is
+  worth its brewing cost (x1.25 a step), at least brewedPotionFloor = 1 iron. Brewable potions are not pinned (a pin
+  above brewing cost is a printer); Flight is dear through its ingredient: Familiar Fauna Pixie Dust 5d (pixies have
+  spawn weight 1, group 1) -> Flight about 2d. Recall follows its brewing cost (~400). Loot-only potions keep pins:
+  Resistance/Absorption/Magic Shield 2d, 1-Up 3d, Return 4d, long Flight 3d. The 1-iron floor leaves a small printer
+  (cheapest brews ~140, worth 1.25 iron): `brewedPotionFloor = 0` removes it.
 - All brewable potions are winnable (drinkable, splash, lingering).
-- 2026-11-01 (pack list "Boss loot" section): Skeleton King drops Famine/War/Halo Necklace/Dream Catcher 40d, "Death"
-  16d, Crown of Rule 10d; Forgotten Items golem armor 32d a piece. Asked for but NOT applied, waiting on a reply because
-  the checks flagged them: ordinary potions 4d, Flight 32d, other potion pins 8d (all brew for 50-400: printers; offered
-  fix = potions and tipped arrows can be won but not bet, which needs a `nobet` pack-list keyword); Living/Sentient
-  chestplate 60d/80d (stats 2.5d/11d; would make parasite drops worth diamonds each); soulstones 64d (bosses drop 2-3);
-  race rings 128d (rare Lost Cities loot; quests only ask for them); Miner's Ring (Baubles test item: nowin?), Famine
-  Boots 32d (rest of the set 5-8d), Midnight Mourne 32d, Sentient weapons 128d, bound tools 32d, troll weapons and
-  Dread Knight's Sword 40d (mob drops from mid-tier mobs, stats ~3d).
+- 2026-11-01, pack list sections "Boss loot" and "Endgame and rare items": Skeleton King drops Famine/War/Halo
+  Necklace/Dream Catcher 40d, "Death" 16d, Crown of Rule 10d; Forgotten Items golem armor 32d a piece. Sentient armor is
+  endgame: Blood Tear 8d (Walking Head drop, 1 per kill) makes the Sentient Core ~66d and each piece 73-79d; Sentient
+  weapons (no recipe) 80d. Living armor stays recipe-priced (~13d chest). Boss soulstones (Undead/Aberration/Demon)
+  24d, other soulstones 6d. Xat race rings 16d, Stones of Inertia 8d, Miner's Ring nowin, Famine Boots and Midnight
+  Mourne 4d, Bound Axe/Pickaxe and Gamble Pickaxe 4d, troll weapons and Dread Knight's Sword 4d. Risk to check in game:
+  if Walking Heads are common, Blood Tears at 8d print diamonds. Above Sentient sit only Xat's Arcing Orb (211d) and race
+  foods (~95-105d): their recipes really eat several diamond blocks. balance.py section 6 flags the Sentient Core
+  (66d vs gear stats 3d): intended.
 - GitHub repo should be PUBLIC (MIT). Friends play the same pack single-player, together on a server/LAN, and some in
   other 1.12.2 packs, some on the official launcher or CurseForge rather than TLauncher.
 
@@ -181,19 +186,15 @@ Cow, Defiled Lands...); strong gear far below its stats 105 -> 7 and far above 1
 their gear says (myrmex chitin 2i, troll leather 2i/4i, death worm chitin 2560, sea serpent scales 6i). The dragon pins
 already agreed with their gear (x0.8-1.4). Not yet in game; the jar is not installed.
 
-**Open decision for Malek: potions are value printers.** Swiftness brews for 51 and is worth 8192 (the potionValue
-floor); Healing brews for 33 from a Leech; Flight is pinned 18d and brews for 77 (3 Thick + 1 Familiar Fauna Pixie
-Dust, a passive mob's drop worth 84); Recall pinned 4d brews for 396 (Warp Scroll 861). 672 of 4890 prizes are potions,
-661 of them at 1 diamond or more. Options: keep; price potions by brewing cost (drop the floor to e.g. 1 iron or 0);
-or keep the pins and raise the gating ingredients so brewing costs what the potion is worth.
+Potions and the questionable items were decided on 2026-11-01 (see Malek's decisions above); built and checked on the
+harness, branch `progression-balance`, not yet tested in game.
 
 Still to do, in rough order:
-1. The potion decision above and the other pending answers (see Malek's decisions, 2026-11-01), then rerun balance.py.
+1. Malek tests in game (item 7 below), especially Walking Head rarity (Blood Tear 8d) and potion prices.
 2. Enchantments: `enchantmentLevelValue` is a flat 256/level on bets only (books and enchanted gear are never prizes).
    A per-enchantment value (rarity, max level, treasure, curses at 0) must stay below what an enchanting-table roll
    costs (3 levels at 30 = ~300 XP points = ~22k in XP bottles at 512 each, plus 3 lapis = 2.6k) or it becomes a printer.
-3. Remaining report lines: Lava Cow Skeleton King boss drops hit the 4-nether-star cap (Famine, War, Halo Necklace,
-   Dream Catcher: 60-64d); a few Lava Cow daggers below their stats; ~1000 guessed prizes are junk/stone tier (32).
+3. Remaining report lines: a few Lava Cow daggers below their stats; ~1000 guessed prizes are junk/stone tier (32).
 4. `install/Install-UpgraderWheel.bat` (double-click wrapper: runs `install.ps1` beside it, else downloads it from
    raw.githubusercontent) and `install/install.sh` for macOS/Linux (curl one-liner; find `~/Library/Application Support/
    minecraft`, `~/.minecraft`, Prism/CurseForge folders).

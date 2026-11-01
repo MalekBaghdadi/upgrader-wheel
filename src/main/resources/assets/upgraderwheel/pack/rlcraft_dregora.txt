@@ -18,30 +18,19 @@
 # Scale: iron ingot 1024, gold ingot 2048, diamond 8192, emerald 16384, ender pearl 1024, nether star 139264.
 
 # ---------------------------------------------------------------- Potions
-# Every brewed potion with an effect is worth at least potionValue (config, default 4 gold = 1 diamond).
-# Splash, lingering, long and strong versions are worked out from these through their brewing recipes
-# (each step is worth what goes in x 1.25), and potions brewed from costly ingredients (Diamond Skin from a
-# diamond block, Mending from a dragon heart) price themselves. Only the special ones are listed here.
+# Potions can be bet, so a brewed potion is worth what it costs to brew (each step: what goes in x 1.25), never less
+# than brewedPotionFloor (config, 1 iron). A pin above the brewing cost would let anyone with a brewing stand make
+# diamonds out of nothing, so brewable potions are not pinned: to make one dearer, price what it is brewed from.
+# Flight is brewed from Familiar Fauna Pixie Dust, a rare mob's drop (spawn weight 1): that is what makes it dear.
+familiarfauna:pixie_dust = 5d                  # Flight comes out about 2 diamonds
 
-# Strong potions: 2 diamonds
-potion:minecraft:regeneration = 2d
-potion:minecraft:strength = 2d
-potion:minecraft:strong_healing = 2d           # Healing II
-potion:potioncore:resistance = 2d              # Fortitude (loot only)
-potion:potioncore:absorption = 2d              # loot only
-potion:potioncore:magic_shield = 2d            # loot only
-potion:potioncore:teleport_surface = 2d        # Escape: teleports you to the surface
-potion:potioncore:cure = 2d                    # Curing
-potion:rlmixins:curse_break = 2d               # Curse Break (Cleansing Talisman)
-potion:potioncore:revival = 3d                 # 1-Up: brings you back once (loot only)
-
-# Teleport home: 4 diamonds (the Wormhole Potion is brewed from the Recall Potion and comes out about 5)
-bountifulbaubles:potionrecall = 4d
-potion:potioncore:teleport_spawn = 4d          # Return (loot only)
-
-# Flight: 18 diamonds (splash and lingering come out higher through their brewing steps)
-potion:potioncore:flight = 18d
-potion:potioncore:long_flight = 22d            # loot only
+# Loot-only potions (no brewing recipe in the pack, so a pin cannot be farmed)
+potion:potioncore:resistance = 2d              # Fortitude
+potion:potioncore:absorption = 2d
+potion:potioncore:magic_shield = 2d
+potion:potioncore:revival = 3d                 # 1-Up: brings you back once
+potion:potioncore:teleport_spawn = 4d          # Return
+potion:potioncore:long_flight = 3d             # next to brewed Flight (about 2 diamonds)
 
 # ---------------------------------------------------------------- Ice and Fire: dragons
 iceandfire:dragonbone = 8192                 # 1 diamond. Bone gear is a bit better than diamond gear
@@ -202,6 +191,49 @@ forgottenitems:golem_helmet = 32d
 forgottenitems:golem_chestplate = 32d
 forgottenitems:golem_leggings = 32d
 forgottenitems:golem_boots = 32d
+
+# ---------------------------------------------------------------- Endgame and rare items (decided 2026-11-01)
+# Endgame is the top of the ladder. Sentient armor is Living armor plus a Sentient Core (8 Blood Tears + a Living Core),
+# so the Blood Tear carries its price: a piece comes out at 70-80 diamonds. Blood Tears drop from the parasites'
+# Walking Head, one per kill: if those turn out to be common, this has to come down (they would print diamonds).
+contenttweaker:blood_tear = 8d
+srparasites:weapon_sword_sentient = 80d        # no recipe: made in the world from Living weapons
+srparasites:weapon_axe_sentient = 80d
+srparasites:weapon_cleaver_sentient = 80d
+srparasites:weapon_lance_sentient = 80d
+srparasites:weapon_scythe_sentient = 80d
+srparasites:weapon_bow_sentient = 80d
+# Lycanites soulstones: the three bosses drop 2-3 each, so a boss kill is worth 48-72 diamonds.
+# The other kinds are worth a little more than the plain Soulstone they are made from.
+lycanitesmobs:soulstone_* = 6d
+lycanitesmobs:soulstone_undead = 24d           # Amalgalich
+lycanitesmobs:soulstone_aberration = 24d       # Asmodeus
+lycanitesmobs:soulstone_demon = 24d            # Rahovart
+# Xat race rings: rare Lost Cities loot (the quests only ask you to find one)
+xat:dragon_ring = 16d
+xat:dwarf_ring = 16d
+xat:elf_ring = 16d
+xat:faelis_ring = 16d
+xat:fairy_ring = 16d
+xat:goblin_ring = 16d
+xat:titan_ring = 16d
+xat:greater_inertia_stone = 8d
+xat:inertia_null_stone = 8d
+baubles:ring = nowin                           # Miner's Ring: the Baubles mod's own test item
+mod_lavacow:faminearmor_boots = 4d             # the rest of the Famine set is 5-8 diamonds
+mod_lavacow:undertaker_shovel = 4d             # Midnight Mourne; the Undertaker's Undying Heart is about 3
+forgottenitems:bound_axe = 4d
+forgottenitems:bound_pickaxe = 4d
+forgottenitems:gamble_pickaxe = 4d
+# Dropped by mid-tier mobs (trolls, dread knights): pricier would make them a diamond farm
+iceandfire:troll_weapon.axe = 4d
+iceandfire:troll_weapon.column = 4d
+iceandfire:troll_weapon.column_forest = 4d
+iceandfire:troll_weapon.column_frost = 4d
+iceandfire:troll_weapon.hammer = 4d
+iceandfire:troll_weapon.trunk = 4d
+iceandfire:troll_weapon.trunk_frost = 4d
+iceandfire:dread_knight_sword = 4d
 
 # ---------------------------------------------------------------- Generated (tools/gen_rules.py): raw materials in bulk
 # NuclearCraft metals and fuels, VariedCommodities, Defiled Lands and SRParasites drops, Grappling Hook parts...

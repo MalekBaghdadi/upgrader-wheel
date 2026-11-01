@@ -174,7 +174,7 @@ final class BaseValues {
             item("minecraft:record_" + record, 2048);
         }
 
-        // A bottle of water: brewing starts here (potions with an effect are worth at least potionValue)
+        // A bottle of water: brewing starts here (brewed potions with an effect are worth at least brewedPotionFloor)
         POTIONS.put("minecraft:water", 16.0);
 
         // Common mod metals and gems (ore dictionary). Base metals are priced against iron (1024)
