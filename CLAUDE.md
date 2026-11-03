@@ -207,7 +207,7 @@ Still to do, in rough order:
 7. Malek tests in game: potion results on the wheel (icon, name, search `@potioncore`, winning one gives the right
    potion), tooltips, `/upgrader value` on a potion, multiplayer if possible.
 
-Also in git from before: `gradle.properties` (`mod_version = 1.2.0`, `mod_url`, `mod_update_json`), `update.json`
+Also in git from before: `gradle.properties` (`mod_version = 1.2.1` (v1.2.1 released 2026-11-03: emerald = gold; Malek's "push to github" means publish the release: bump version, CHANGELOG section, update.json, tag `v*`), `mod_url`, `mod_update_json`), `update.json`
 (Forge update checker), `install/install.ps1` (Windows installer: finds CurseForge, official/TLauncher, Prism/PolyMC/
 MultiMC, ATLauncher, GDLauncher, Modrinth App, Technic, FTB instances; Dregora first; downloads the latest release jar;
 options `-ModsFolder`, `-Jar`, `-ListOnly`/`UPGRADERWHEEL_LISTONLY=1`, `UPGRADERWHEEL_NOPAUSE=1`; download path untested).

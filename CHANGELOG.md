@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.2.1] - 2026-11-03
 
 ### Changed
 - Emerald is worth the same as a gold ingot (2048, was 16384); `1e` in value lists follows. Things made from emeralds

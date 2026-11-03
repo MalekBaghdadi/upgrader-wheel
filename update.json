@@ -1,10 +1,11 @@
 {
   "homepage": "https://github.com/MalekBaghdadi/upgrader-wheel/releases",
   "promos": {
-    "1.12.2-latest": "1.2.0",
-    "1.12.2-recommended": "1.2.0"
+    "1.12.2-latest": "1.2.1",
+    "1.12.2-recommended": "1.2.1"
   },
   "1.12.2": {
+    "1.2.1": "Emerald is worth the same as a gold ingot (was 8 times that); things made from emeralds get cheaper.",
     "1.2.0": "Potions valued by type and winnable, iron ingot 1024, gear checked against its stats, mob drops priced by how hard the mob is, items nobody can get no longer offered, Windows installer.",
     "1.1.0": "Wheel key, pack value list, gear estimates.",
     "1.0.0": "First version."
