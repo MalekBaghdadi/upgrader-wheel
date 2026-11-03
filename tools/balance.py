@@ -16,8 +16,8 @@ import csv, math, re, sys, collections
 TIERS = [  # (name, lower bound, what sits there in vanilla terms)
     ('junk', 0, 'dirt, cobble, planks, sticks'),
     ('stone', 64, 'leather 64, coal 128, bone 144, gunpowder 192'),
-    ('iron', 512, 'iron 1024, ender pearl 1024, blaze rod 1536, gold 2048'),
-    ('diamond', 4096, 'ghast tear 4096, diamond 8192, potions 8192, emerald 16384'),
+    ('iron', 512, 'iron 1024, ender pearl 1024, blaze rod 1536, gold 2048, emerald 2048'),
+    ('diamond', 4096, 'ghast tear 4096, diamond 8192, potions 8192'),
     ('dragon', 32768, 'elytra 32768, dragon blood 32768, dragon heart 65536, nether star 139264'),
     ('mythic', 262144, 'dragon egg 262144 and beyond'),
 ]

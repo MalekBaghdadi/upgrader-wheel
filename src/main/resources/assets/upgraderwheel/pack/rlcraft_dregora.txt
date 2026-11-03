@@ -15,7 +15,7 @@
 #           modid:item = nowin          (can still be bet, but is never offered as a result)
 # Values:   a number, or 2d = 2 diamonds, 3i = 3 iron ingots, 1g = 1 gold ingot, 1e = 1 emerald
 #
-# Scale: iron ingot 1024, gold ingot 2048, diamond 8192, emerald 16384, ender pearl 1024, nether star 139264.
+# Scale: iron ingot 1024, gold ingot 2048, diamond 8192, emerald 2048, ender pearl 1024, nether star 139264.
 
 # ---------------------------------------------------------------- Potions
 # Potions can be bet, so a brewed potion is worth what it costs to brew (each step: what goes in x 1.25), never less

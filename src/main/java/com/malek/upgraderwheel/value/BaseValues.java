@@ -107,8 +107,8 @@ final class BaseValues {
         item("minecraft:gold_ingot", 2048);
         item("minecraft:diamond", 8192);
         item("minecraft:diamond_ore", 8192);
-        item("minecraft:emerald", 16384);
-        item("minecraft:emerald_ore", 16384);
+        item("minecraft:emerald", 2048);
+        item("minecraft:emerald_ore", 2048);
         item("minecraft:dye@4", 864);
         item("minecraft:lapis_ore", 864);
         item("minecraft:redstone", 64);

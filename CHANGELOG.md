@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- Emerald is worth the same as a gold ingot (2048, was 16384); `1e` in value lists follows. Things made from emeralds
+  (summoning crystals, soulkeys, emerald jewellery, blocks) get cheaper with it.
+
 ## [1.2.0] - 2026-11-01
 
 ### Added

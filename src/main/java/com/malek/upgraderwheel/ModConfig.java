@@ -222,7 +222,7 @@ public final class ModConfig {
         double unit = 1;
         char last = t.charAt(t.length() - 1);
         if (last == 'd' || last == 'i' || last == 'g' || last == 'e') {
-            unit = last == 'd' ? 8192 : last == 'i' ? 1024 : last == 'g' ? 2048 : 16384;
+            unit = last == 'd' ? 8192 : last == 'i' ? 1024 : 2048; // g and e are both 2048
             t = t.substring(0, t.length() - 1).trim();
         }
         try {

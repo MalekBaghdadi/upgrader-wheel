@@ -12,7 +12,7 @@
 #           potion:potioncore:flight = 18d     (a potion type, drinkable; splash:, lingering:, arrow: for the others)
 #           modid:item = nowin          (can still be bet, but is never offered as a result)
 # Values:   a number, or 2d = 2 diamonds, 3i = 3 iron ingots, 1g = 1 gold ingot, 1e = 1 emerald
-# Scale:    iron ingot 1024, gold ingot 2048, diamond 8192, emerald 16384, nether star 139264
+# Scale:    iron ingot 1024, gold ingot 2048, diamond 8192, emerald 2048, nether star 139264
 # After editing: /upgrader reload in game (or re-enter the world).
 #
 # Examples (remove the # to use):

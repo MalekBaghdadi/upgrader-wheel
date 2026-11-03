@@ -112,7 +112,7 @@ installs Forge and copies config/scripts. About 600 MB, a few minutes. Java 8 fo
   `pack/rlcraft_dregora_drops.txt` (generated, never edit by hand) holds mob drop estimates: weaker than pins.
 - `value/ItemPattern`: `mod:item`, `mod:item:meta`, `mod:*`, `ore:name`, globs `mod:prefix_*`, `*:*text*`, and
   `potion:|splash:|lingering:|arrow:` + `ns:type` (globs allowed, `potion:type` means minecraft).
-- `value/BaseValues`: iron ingot/ore 1024, gold ingot/ore 2048, diamond 8192, emerald 16384; horse armor and chainmail
+- `value/BaseValues`: iron ingot/ore 1024, gold ingot/ore 2048, diamond 8192, emerald 2048 (= gold, since 2026-11-03; was 16384); horse armor and chainmail
   scaled for iron 1024; iron-tier ore-dict metals scaled x4-ish (copper 512 ... silver 1536, cobalt 3072).
 - `logic/UpgradeService`: bet checks, the roll, catalog packets. `logic/WheelAccess`: opening rules + login hint.
 - `inventory/`, `client/GuiUpgrader` (wheel screen), `client/ClientEvents` (U key, value tooltips).
